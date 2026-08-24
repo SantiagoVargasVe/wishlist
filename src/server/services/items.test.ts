@@ -6,16 +6,6 @@ import { createTestDb, hasTestDatabase, type TestDb } from "../db/test-support";
 import { DomainError } from "../errors";
 import { createItem, deleteItem, updateItem } from "./items";
 
-/**
- * Passed explicitly to every call that sets a price, rather than relying on
- * whatever FX_COP_PER_USD happens to be in the environment. The service reads
- * config lazily only when this is omitted (see items.ts), so tests that
- * supply it never touch config at all — deterministic regardless of .env,
- * and no full valid environment required, which is what broke CI here the
- * first time.
- */
-const TEST_FX_RATE = 4100;
-
 /** Run and return the DomainError code, or undefined if it succeeded. */
 async function errorCode(promise: Promise<unknown>): Promise<string | undefined> {
   try {
@@ -147,7 +137,9 @@ describe.skipIf(!hasTestDatabase)("item CRUD", () => {
       expect(rows).toHaveLength(0);
     });
 
-    it("computes the USD snapshot for a COP price", async () => {
+    it("stores a COP price exactly as entered — no conversion", async () => {
+      // ADR-0009: no derived USD snapshot. The amount and currency the owner
+      // typed are the only numbers that ever exist for this item.
       const item = await createItem(
         ownerId,
         {
@@ -158,15 +150,13 @@ describe.skipIf(!hasTestDatabase)("item CRUD", () => {
           wishlistIds: [listA],
         },
         ctx.db,
-        TEST_FX_RATE,
       );
 
       expect(item.priceAmount).toBe("410000.00");
       expect(item.priceCurrency).toBe("COP");
-      expect(item.priceUsdSnapshot).toBe("100.00");
     });
 
-    it("snapshots a USD price at its own value", async () => {
+    it("stores a USD price exactly as entered", async () => {
       const item = await createItem(
         ownerId,
         {
@@ -177,10 +167,10 @@ describe.skipIf(!hasTestDatabase)("item CRUD", () => {
           wishlistIds: [listA],
         },
         ctx.db,
-        TEST_FX_RATE,
       );
 
-      expect(item.priceUsdSnapshot).toBe("49.99");
+      expect(item.priceAmount).toBe("49.99");
+      expect(item.priceCurrency).toBe("USD");
     });
 
     it("creates an item with no price at all", async () => {
@@ -191,7 +181,7 @@ describe.skipIf(!hasTestDatabase)("item CRUD", () => {
         ctx.db,
       );
       expect(item.priceAmount).toBeNull();
-      expect(item.priceUsdSnapshot).toBeNull();
+      expect(item.priceCurrency).toBeNull();
     });
   });
 
@@ -271,16 +261,16 @@ describe.skipIf(!hasTestDatabase)("item CRUD", () => {
       expect(updated.ogStatus).toBe("ok");
     });
 
-    it("recomputes the USD snapshot when the price changes", async () => {
+    it("updates the price and currency together", async () => {
       const item = await seedItem();
       const updated = await updateItem(
         item.id,
         ownerId,
         { priceAmount: "205000", priceCurrency: "COP" },
         ctx.db,
-        TEST_FX_RATE,
       );
-      expect(updated.priceUsdSnapshot).toBe("50.00");
+      expect(updated.priceAmount).toBe("205000.00");
+      expect(updated.priceCurrency).toBe("COP");
     });
 
     it("returns not-found for an unknown id", async () => {

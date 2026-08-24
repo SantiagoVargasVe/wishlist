@@ -2,10 +2,8 @@ import "server-only";
 
 import { and, eq, inArray } from "drizzle-orm";
 
-import { computeUsdSnapshot, type SupportedCurrency } from "@/lib/money";
 import type { CreateItemInput, UpdateItemInput } from "@/lib/schemas/item";
 import { assertOwned } from "../auth/ownership";
-import { getConfig } from "../config";
 import { getDb } from "../db";
 import { liveItem } from "../db/helpers";
 import { items, wishlistItems, wishlists } from "../db/schema";
@@ -23,8 +21,6 @@ export type PublicItem = {
   siteName: string | null;
   priceAmount: string | null;
   priceCurrency: string | null;
-  /** Cross-currency filtering only — see docs/context/data-model.md § Money. Never render it. */
-  priceUsdSnapshot: string | null;
   ogStatus: string;
   ogFetchedAt: Date | null;
   createdAt: Date;
@@ -41,7 +37,6 @@ const itemColumns = {
   siteName: items.siteName,
   priceAmount: items.priceAmount,
   priceCurrency: items.priceCurrency,
-  priceUsdSnapshot: items.priceUsdSnapshot,
   ogStatus: items.ogStatus,
   ogFetchedAt: items.ogFetchedAt,
   createdAt: items.createdAt,
@@ -50,26 +45,13 @@ const itemColumns = {
 
 /**
  * `priceAmount`/`priceCurrency` are validated as a pair by the Zod schema
- * before either service function runs, so seeing one guarantees the other —
- * the assertion here is what that guarantee buys back.
- *
- * `copPerUsd` is resolved here, not as a default parameter on the exported
- * functions: a default parameter expression runs on *every* call where it's
- * omitted, regardless of whether the body ends up using it. Resolving it only
- * once `amount` is known to be present means a create/update with no price
- * never touches config at all — only calls that actually need the rate pay
- * for `getConfig()`, which is also what keeps most of this file's tests free
- * to run without a full, valid environment.
+ * before either service function runs, so seeing one guarantees the other.
+ * Stored exactly as entered — see ADR-0009 for why there's no derived
+ * conversion.
  */
-function priceFields(
-  amount: string | undefined,
-  currency: string | undefined,
-  copPerUsd?: number,
-) {
+function priceFields(amount: string | undefined, currency: string | undefined) {
   if (amount === undefined) return {};
-  const rate = copPerUsd ?? getConfig().FX_COP_PER_USD;
-  const snapshot = computeUsdSnapshot(amount, currency as SupportedCurrency, rate);
-  return { priceAmount: amount, priceCurrency: currency, ...snapshot };
+  return { priceAmount: amount, priceCurrency: currency };
 }
 
 /**
@@ -79,15 +61,11 @@ function priceFields(
  * didn't ask for. The item row and its list memberships are created in one
  * transaction: an item with zero lists is as broken a state as a user with
  * no default wishlist.
- *
- * `copPerUsd` is optional, resolved lazily inside `priceFields` — see the
- * comment there for why it isn't a default parameter.
  */
 export async function createItem(
   ownerId: string,
   input: CreateItemInput,
   db: Db = getDb(),
-  copPerUsd?: number,
 ): Promise<PublicItem> {
   const owned = await db
     .select({ id: wishlists.id })
@@ -108,7 +86,7 @@ export async function createItem(
         url: input.url,
         title: input.title,
         notes: input.notes,
-        ...priceFields(input.priceAmount, input.priceCurrency, copPerUsd),
+        ...priceFields(input.priceAmount, input.priceCurrency),
       })
       .returning(itemColumns);
 
@@ -135,7 +113,6 @@ export async function updateItem(
   ownerId: string,
   input: UpdateItemInput,
   db: Db = getDb(),
-  copPerUsd?: number,
 ): Promise<PublicItem> {
   const [existing] = await db
     .select()
@@ -152,7 +129,7 @@ export async function updateItem(
       ...(input.url !== undefined ? { url: input.url } : {}),
       ...(input.title !== undefined ? { title: input.title } : {}),
       ...(input.notes !== undefined ? { notes: input.notes } : {}),
-      ...priceFields(input.priceAmount, input.priceCurrency, copPerUsd),
+      ...priceFields(input.priceAmount, input.priceCurrency),
       ...(urlChanged ? { ogStatus: "pending", ogFetchedAt: null } : {}),
       updatedAt: new Date(),
     })

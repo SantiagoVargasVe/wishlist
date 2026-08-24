@@ -84,8 +84,9 @@ belongs to this list *and* another is never touched — only its membership here
 | PATCH | `/api/items/:id` | O | Any subset of `url, title, notes, priceAmount+priceCurrency` → `{ item }`. `404` for missing **or soft-deleted**. |
 | DELETE | `/api/items/:id` | O | Soft delete. Removes **every** `wishlist_items` row for the item, not just one — see § *Deletion semantics* in [data-model.md](data-model.md). |
 
-`priceAmount`/`priceCurrency` travel together — both or neither, on create and on update. Setting
-them computes `priceUsdSnapshot` server-side; it's never accepted from the client.
+`priceAmount`/`priceCurrency` travel together — both or neither, on create and on update. Stored
+and returned exactly as sent; there's no server-side conversion or derived value
+([ADR-0009](../adr/0009-no-currency-conversion.md)).
 
 Changing `url` on `PATCH` resets `ogStatus` to `pending` and clears `ogFetchedAt` — a hook for the
 OG scraper (T030–T034), not a live trigger. **That scraper doesn't exist yet.** Until it does,

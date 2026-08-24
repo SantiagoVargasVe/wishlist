@@ -98,9 +98,10 @@ it, so warn in that case.
 
 ## Money
 
-Format with `Intl.NumberFormat`, `es-CO` for COP and `en-US` for USD. **Always display the
-original currency.** `priceUsdSnapshot` exists only to make the filter work across mixed
-currencies — never render it.
+Format with `Intl.NumberFormat`, `es-CO` for COP and `en-US` for USD. Always the amount and
+currency exactly as stored — there's no conversion anywhere in this system
+([ADR-0009](../adr/0009-no-currency-conversion.md)), and no cross-currency price filter to build
+UI for.
 
 ## i18n
 

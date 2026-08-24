@@ -94,13 +94,15 @@ their window — safe because a fully-refilled bucket is indistinguishable from 
 
 ## Money
 
-Stored as `numeric(14,2)` plus an explicit ISO code. **Never a float.**
+Stored as `numeric(14,2)` plus an explicit ISO code. **Never a float.** Displayed exactly as
+entered — there is no conversion anywhere in this system. See [ADR-0009](../adr/0009-no-currency-conversion.md).
 
-Cross-currency filtering is otherwise meaningless — "under 100" says nothing when a list mixes
-COP and USD. So `price_usd_snapshot` is computed at write time from a configured FX rate, with
-`fx_rate_used` recorded next to it. Filtering and sorting run on the snapshot; **display always
-uses the original currency and amount.** The snapshot is explicitly a point-in-time approximation
-and is never shown to users.
+An earlier version of this schema also stored a `price_usd_snapshot`, computed at write time from
+a configured FX rate, meant to let a single filter compare COP and USD items. It was removed: two
+items saved months apart would have been converted using two different rates, so the very
+comparison the snapshot existed for was never actually apples-to-apples — the design didn't just
+go stale, it was inconsistent with itself from the moment a second currency appeared. There is no
+cross-currency price filter in this product; COP and USD items are simply shown as entered.
 
 COP amounts are large (a 1.3M COP item) but well inside `numeric(14,2)`.
 

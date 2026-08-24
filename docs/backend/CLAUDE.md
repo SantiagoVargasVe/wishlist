@@ -83,11 +83,11 @@ Cache by sha256 of the normalized URL (strip `utm_*`, fragments, trailing slash)
 
 ## Money
 
-`numeric(14,2)` + ISO code. Read as string, use a decimal type, **never a JS float.**
-
-On write, compute `price_usd_snapshot` from the configured FX rate and record `fx_rate_used`
-beside it. Filtering and sorting use the snapshot; responses always carry the original amount and
-currency. The snapshot is an internal approximation and is never displayed.
+`numeric(14,2)` + ISO code. Read as string, use a decimal type, **never a JS float.** Stored and
+returned exactly as the owner entered it — no conversion, no derived snapshot. See
+[ADR-0009](../adr/0009-no-currency-conversion.md) for why an earlier version of this that computed
+a USD snapshot at write time was removed: two items saved months apart would have been converted
+at two different rates, so the comparison it existed for was never actually valid.
 
 ## Errors
 
