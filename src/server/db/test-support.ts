@@ -2,6 +2,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 
+import { pgCodeOf } from "./pg-errors";
 import * as schema from "./schema";
 
 /**
@@ -28,20 +29,19 @@ if (process.env.CI && !TEST_DATABASE_URL) {
 
 export const hasTestDatabase = Boolean(TEST_DATABASE_URL);
 
-/** SQLSTATE codes. https://www.postgresql.org/docs/current/errcodes-appendix.html */
-export const PG_UNIQUE_VIOLATION = "23505";
-export const PG_FOREIGN_KEY_VIOLATION = "23503";
-export const PG_CHECK_VIOLATION = "23514";
-export const PG_NOT_NULL_VIOLATION = "23502";
+// Re-exported so tests have one import. Definitions live in pg-errors.ts,
+// which application code uses too.
+export {
+  PG_UNIQUE_VIOLATION,
+  PG_FOREIGN_KEY_VIOLATION,
+  PG_CHECK_VIOLATION,
+  PG_NOT_NULL_VIOLATION,
+} from "./pg-errors";
 
 /**
  * Run a query and return the SQLSTATE code it failed with, or `undefined` if it
- * succeeded.
- *
- * Drizzle wraps driver errors in its own `Failed query: ...` message, so the
- * Postgres detail lives on `error.cause`. Asserting on the code rather than the
- * message is also just better: message text shifts between Postgres versions
- * and locales, while `23505` always means unique violation.
+ * succeeded. Asserting on the code beats matching message text, which shifts
+ * between Postgres versions and locales.
  */
 export async function pgErrorCode(
   promise: Promise<unknown>,
@@ -50,8 +50,7 @@ export async function pgErrorCode(
     await promise;
     return undefined;
   } catch (error) {
-    const withCause = error as { code?: string; cause?: { code?: string } };
-    return withCause.cause?.code ?? withCause.code;
+    return pgCodeOf(error);
   }
 }
 

@@ -6,6 +6,19 @@ import { fileURLToPath } from "url";
 
 const alias = { "@": fileURLToPath(new URL("./src", import.meta.url)) };
 
+// `server-only` throws on import unless a bundler activates its `react-server`
+// export condition. Vitest has no bundler doing that, so without this alias
+// every service that imports it is untestable. Vite's `resolve.conditions` does
+// not reach Vitest's SSR resolution, hence an explicit alias rather than a
+// condition. The production guard is untouched: `next build` still rejects a
+// client component importing server-only code.
+const serverAlias = {
+  ...alias,
+  "server-only": fileURLToPath(
+    new URL("./src/test/server-only-stub.ts", import.meta.url),
+  ),
+};
+
 // Integration tests need DATABASE_URL_TEST. Passed through explicitly rather
 // than relying on worker env inheritance, which varies by pool type.
 const passthroughEnv = {
@@ -24,7 +37,7 @@ export default defineConfig({
     // Two environments: server code is plain Node, UI code needs a DOM.
     projects: [
       {
-        resolve: { alias },
+        resolve: { alias: serverAlias },
         test: {
           name: "server",
           environment: "node",
