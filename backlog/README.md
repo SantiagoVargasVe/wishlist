@@ -90,7 +90,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 - `T025` `GET /api/me` aggregate endpoint — **done**
 
 **E4 — OG enrichment**
-- `T030` `safe-fetch` SSRF guard + exhaustive tests — **written**
+- `T030` `safe-fetch` SSRF guard + exhaustive tests — **done**
 - `T031` OG / Twitter / JSON-LD parser with precedence + sanitization
 - `T032` `POST /api/preview` + `og_cache`
 - `T033` Image download → sharp → `data/images/` + `/media/:filename` — **written**
