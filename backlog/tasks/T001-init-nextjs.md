@@ -2,7 +2,7 @@
 id: T001
 title: Initialize Next.js 15 app with TypeScript and Tailwind
 epic: E1-foundation
-status: todo
+status: done
 depends_on: []
 size: S
 ---
