@@ -2,7 +2,7 @@
 id: T030
 title: SSRF-safe outbound fetch utility
 epic: E4-og
-status: todo
+status: done
 depends_on: [T001]
 size: M
 ---
@@ -40,12 +40,24 @@ denylist and the reasoning behind each rule.
 ## Out of scope
 
 OG parsing (T031), the preview endpoint (T032), the image pipeline (T033). This task delivers the
-primitive and its tests only.
+primitive and its tests only — nothing calls it yet, so there's no UI or API surface to verify.
+
+**Deviation:** the "original `Host` header" line above is satisfied differently than it reads.
+`safeFetch` doesn't rewrite the URL to the validated IP and set `Host` manually — it passes
+Node's `http`/`https request()` a custom `lookup` option that resolves to the pre-validated
+address and nothing else, while `url` (hostname, path, TLS SNI) stays exactly as given. Node
+calls `lookup` exactly once per connection, so this is the same fix (resolve, validate, connect
+to *that* address, no second resolution possible) with less manual header-juggling. Also:
+`safeFetch` takes `timeoutMs`/`userAgent` as caller-supplied options rather than reading
+`config.OG_FETCH_TIMEOUT_MS`/`config.OG_USER_AGENT` itself — keeps this module fully decoupled
+from the app's environment schema, so its tests don't need `DATABASE_URL`/`AUTH_SECRET`/`APP_URL`
+satisfied just to exercise a fetch guard. T031/T032 pass those config values in when they call it.
 
 ## Files likely touched
 
 ```
 src/server/net/safe-fetch.ts
+src/server/net/safe-fetch.test.ts
 src/server/net/ip-rules.ts
-src/server/net/__tests__/safe-fetch.test.ts
+src/server/net/ip-rules.test.ts
 ```
