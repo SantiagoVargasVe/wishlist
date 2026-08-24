@@ -1,0 +1,12 @@
+[Unit]
+Description=Check for a new wishlist image every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+# Avoid every timer on the box firing at the same instant.
+RandomizedDelaySec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

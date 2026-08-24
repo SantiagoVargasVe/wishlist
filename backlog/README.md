@@ -111,10 +111,10 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 - `T058` `generateMetadata()` OG tags on the share page
 
 **E7 — Deploy**
-- `T060` Add the app hostname to the Cloudflare Tunnel
-- `T061` `infra/Dockerfile` (multi-stage, Next standalone output)
-- `T062` GitHub Actions: build `linux/amd64` image on push to main → GHCR
-- `T063` Host: compose pinned to the GHCR image + systemd pull timer
+- `T060` Add the app hostname to the Cloudflare Tunnel — *manual, Cloudflare dashboard*
+- `T061` `infra/Dockerfile` (multi-stage, Next standalone output) — **done**
+- `T062` GitHub Actions: build `linux/amd64` image after CI → GHCR — **done**
+- `T063` Host: compose pinned to the GHCR image + systemd pull timer — **done**
 - `T064` Cloudflare WAF rate-limit rules
 
 T061–T063 implement [ADR-0007](../docs/adr/0007-deploy-via-ghcr-and-pull-timer.md) and are

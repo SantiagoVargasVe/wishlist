@@ -1,0 +1,15 @@
+[Unit]
+Description=Pull and apply the latest wishlist image
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/robin/nas/wishlist
+# `pull` is a no-op when the digest is unchanged, and `up -d` only recreates the
+# container if the image actually moved. So a tick with nothing new costs one
+# registry HEAD request.
+ExecStart=/usr/bin/docker compose pull --quiet
+ExecStart=/usr/bin/docker compose up -d
+User=robin
+Group=docker
