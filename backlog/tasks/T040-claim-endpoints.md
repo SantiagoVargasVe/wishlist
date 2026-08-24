@@ -2,7 +2,7 @@
 id: T040
 title: Claim schema and claim/unclaim endpoints
 epic: E5-claims
-status: todo
+status: done
 depends_on: [T020, T023]
 size: M
 ---
@@ -39,8 +39,10 @@ section of [security.md](../../docs/context/security.md).
 
 ## Out of scope
 
-Rate limiting (T042), owner-side filtering via `hide_claims_from_owner` (T043), and the
-localStorage/undo UI (T041). Endpoints and data integrity only.
+Building the rate-limit *mechanism* (T042, already done) — this task only applies the existing
+`policies.claim` to these two routes. `GET /api/w/:slug` (the public read endpoint claim state is
+part of) doesn't exist yet either; these routes use a narrow internal lookup, not that endpoint.
+Owner-side filtering via `hide_claims_from_owner` (T043), and the localStorage/undo UI (T041).
 
 ## Files likely touched
 
@@ -48,6 +50,9 @@ localStorage/undo UI (T041). Endpoints and data integrity only.
 src/server/db/schema.ts
 src/server/db/migrations/
 src/server/services/claims.ts
+src/server/services/claims.test.ts
+src/server/errors.ts
+src/lib/claim-token.ts
+src/lib/schemas/claim.ts
 src/app/api/w/[slug]/items/[itemId]/claim/route.ts
-src/server/services/__tests__/claims.test.ts
 ```
