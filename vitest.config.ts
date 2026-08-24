@@ -16,6 +16,11 @@ const passthroughEnv = {
 export default defineConfig({
   test: {
     globals: true,
+    // Integration tests share one database and each resets the schema, so
+    // parallel files clobber each other — non-deterministically, which is worse
+    // than failing. Set at root because per-project it is not honoured.
+    // Sequential costs little: the whole suite runs in about a second.
+    fileParallelism: false,
     // Two environments: server code is plain Node, UI code needs a DOM.
     projects: [
       {
