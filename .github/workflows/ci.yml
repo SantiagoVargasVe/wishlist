@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# This repo is public. The quality job must never require secrets, so that PRs
+# from forks can run it safely. Image build/publish is a separate, main-only
+# workflow added in T062 — see docs/adr/0007-deploy-via-ghcr-and-pull-timer.md.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: lint · typecheck · test · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The app is scaffolded in T001. Until then there is nothing to run, and
+      # a hard failure on every push would just train everyone to ignore CI.
+      - id: detect
+        run: |
+          if [ -f package.json ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No package.json yet — skipping until T001 scaffolds the app."
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.detect.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        if: steps.detect.outputs.ready == 'true'
+        run: npm ci
+
+      - name: Lint
+        if: steps.detect.outputs.ready == 'true'
+        run: npm run lint
+
+      - name: Typecheck
+        if: steps.detect.outputs.ready == 'true'
+        run: npm run typecheck
+
+      - name: Unit tests
+        if: steps.detect.outputs.ready == 'true'
+        run: npm test -- --coverage
+
+      - name: Build
+        if: steps.detect.outputs.ready == 'true'
+        run: npm run build

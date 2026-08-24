@@ -29,8 +29,11 @@ get something reviewable back. If it needs "as we discussed," it's not done bein
 1. Pick a `todo` task whose `depends_on` are all `done`
 2. Set `status: in-progress`
 3. Build it. Read only the docs the task's Context names.
-4. Set `status: done` **in the same commit as the code**, so status never drifts from reality
-5. Reference the id in the commit: `feat(items): add soft delete [T023]`
+4. **Write the tests in the same commit** — see [testing.md](../docs/context/testing.md)
+5. Set `status: done` **in the same commit as the code**, so status never drifts from reality
+6. Reference the id in the commit: `feat(items): add soft delete [T023]`
+
+A task is done when CI is green, not when it works locally.
 
 If you discover work outside the task's scope, write a new task file rather than widening the
 current one. Scope creep inside a task is how tasks stop being self-contained.
@@ -39,7 +42,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 
 | Epic | What | Tasks |
 |---|---|---|
-| **E1** foundation | Next.js app, Docker, Drizzle wiring | T001–T003 |
+| **E1** foundation | Next.js app, Docker, Drizzle, Base UI + data layer | T001–T004 |
 | **E2** auth | Invite codes, register/login, JWT cookie, auth pages | T010–T014 |
 | **E3** core-domain | Wishlist + item schema, CRUD, aggregate read | T020–T025 |
 | **E4** og | SSRF-safe fetch, parser, preview endpoint, image pipeline | T030–T034 |
@@ -50,9 +53,10 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 ## Task index
 
 **E1 — Foundation**
-- `T001` Initialize Next.js 15 + TypeScript + Tailwind — **written**
+- `T001` Initialize Next.js 15 + TypeScript + Tailwind + Vitest — **written**
 - `T002` Local Postgres via docker compose + `.env` wiring
 - `T003` Drizzle setup, config, first migration run
+- `T004` Base UI primitives, dark mode, TanStack Query base client — **written**
 
 **E2 — Auth**
 - `T010` Schema: `users`, `invite_codes` + `seed:invite` script

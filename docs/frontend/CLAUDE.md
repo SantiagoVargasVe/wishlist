@@ -2,8 +2,25 @@
 
 Scope: `src/app/` (routes, components, client state) and `src/lib/` (shared utils, i18n).
 
+**Read [design-system.md](design-system.md) before writing any component.** It covers Base UI,
+the design tokens, the 100-line limit, composition patterns, forms, and the TanStack Query setup.
+This file covers app structure and product behavior; that one covers how code is written.
+
 You probably don't need `docs/backend/`. If you're changing an endpoint's shape, read
 [api-contract.md](../context/api-contract.md) instead of the backend conventions.
+
+## Stack
+
+| | |
+|---|---|
+| Components | **Base UI** (`@base-ui-components/react`) — unstyled primitives, we style with Tailwind |
+| Styling | Tailwind v4, tokens in [src/app/globals.css](../../src/app/globals.css) |
+| Forms | `react-hook-form` + `@hookform/resolvers/zod` |
+| Data | TanStack Query over a single `apiFetch` base client |
+| Tests | Vitest + React Testing Library |
+
+**Not shadcn.** The tokens came from a shadcn generator, but the components are Base UI. Don't
+run `npx shadcn add` — it pulls in Radix and duplicates primitives we already have.
 
 ## The hard rule
 
@@ -99,14 +116,26 @@ on mobile.
 
 ## Styling
 
-Tailwind. Extract a component when a pattern appears three times, not before. Component files
-are colocated by feature under `src/app/`, not in a global `components/` dump.
+Tailwind with the tokens in [globals.css](../../src/app/globals.css) — never a hardcoded color.
+Component files are colocated by feature under `src/app/`, not in a global `components/` dump.
+Full rules in [design-system.md](design-system.md).
 
 Images use `next/image` pointed at `/media/{filename}`. Every item needs a placeholder — some
 items will have no image, and that must look intentional rather than broken.
 
 ## Accessibility
 
-Modals trap focus and close on Escape. Claim buttons need an `aria-label` naming the item —
-"Mark as bought" alone is useless in a list of twenty. Never signal claimed state with color
-alone.
+Base UI handles focus trapping, escape-to-close, and ARIA wiring for its primitives — don't
+reimplement it, and don't fight it.
+
+What's still on you: claim buttons need an `aria-label` naming the item ("Mark as bought" alone
+is useless in a list of twenty), and claimed state must never be signalled by color alone.
+
+## Tests
+
+Vitest + React Testing Library, in the same commit as the code. Query by role and label, not test
+ids. Test behavior a user can observe, not internal state.
+
+Priorities and what's expected: [testing.md](../context/testing.md). Short version — reusable
+hooks, the optimistic claim rollback, shared form schemas, money formatting, and owner-vs-visitor
+rendering. **Don't test Base UI itself**; whether a dialog traps focus is the library's problem.

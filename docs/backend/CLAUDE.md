@@ -101,15 +101,19 @@ the schema change. Never hand-edit an applied migration.
 
 ## Testing
 
-Priority order — services first, they hold the logic:
+Full strategy and thresholds: [testing.md](../context/testing.md). Backend specifics:
 
 1. **`safe-fetch`** — every denied range, redirect-to-private, DNS rebinding, scheme rejection.
-   This one gets exhaustive tests; it's the highest-risk code in the repo.
+   Exhaustive; it's the highest-risk code in the repo.
 2. Claim concurrency — two simultaneous claims, exactly one wins.
 3. Deletion semantics — last-list removal, default-list protection, claims surviving soft delete.
 4. OG parsing — fixture HTML for each precedence path plus a no-metadata page.
 
-Vitest. No network in tests; fixture the HTML.
+Vitest, no network in tests. Test against a **real Postgres**, not a mocked Drizzle — the
+invariants that matter most (the partial unique index, the claim constraint) are enforced by the
+database, and a mock will happily let a double claim through.
+
+Coverage gates: `src/server/net/**` 90%, `src/server/services/**` 80%. Nothing else is gated.
 
 ## Jobs
 

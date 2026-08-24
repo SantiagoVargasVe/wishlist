@@ -14,7 +14,8 @@ without needing an account.
 
 ## Stack
 
-Next.js 15 (App Router) · TypeScript · Tailwind · Drizzle · PostgreSQL 17 · Docker
+Next.js 15 (App Router) · TypeScript · Tailwind v4 · [Base UI](https://base-ui.com) ·
+TanStack Query · react-hook-form + Zod · Drizzle · PostgreSQL 17 · Vitest · Docker
 
 ## Getting started
 
@@ -34,7 +35,8 @@ Open http://localhost:3000. Registration needs an invite code — seed one with
 This repo is built to be worked on with AI agents, so the context is the primary artifact.
 
 - **[CLAUDE.md](CLAUDE.md)** — start here. Guardrails and where to find everything.
-- **[docs/context/](docs/context/)** — product, architecture, data model, API contract, security
+- **[docs/context/](docs/context/)** — product, architecture, data model, API contract, security, testing
+- **[docs/frontend/design-system.md](docs/frontend/design-system.md)** — Base UI, tokens, composition rules
 - **[docs/adr/](docs/adr/)** — why things are the way they are
 - **[backlog/](backlog/)** — the work, one file per task
 
