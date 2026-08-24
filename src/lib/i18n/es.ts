@@ -42,4 +42,9 @@ export const es = {
     generic: "Algo salió mal. Intenta de nuevo.",
     rateLimited: "Demasiados intentos. Intenta de nuevo en {seconds} segundos.",
   },
+  wishlist: {
+    noImage: "Sin imagen",
+    empty: "Todavía no hay artículos en esta lista.",
+    visitorViewComingSoon: "Esta vista llega en una próxima tarea.",
+  },
 } as const;
