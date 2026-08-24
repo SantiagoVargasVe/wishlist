@@ -92,8 +92,8 @@ Changing `url` on `PATCH` resets `ogStatus` to `pending` and clears `ogFetchedAt
 OG scraper (T030–T034), not a live trigger. **That scraper doesn't exist yet.** Until it does,
 `imagePath`, `sourceImageUrl`, `siteName`, and price are exactly what the caller sent; nothing
 auto-fills from the URL.
-| POST | `/api/items/:id/wishlists` | O | `{ wishlistId }` |
-| DELETE | `/api/items/:id/wishlists/:wishlistId` | O | Removing from the **last** list also soft-deletes the item |
+| POST | `/api/items/:id/wishlists` | O | `{ wishlistId }` → `201`. Both the item and the target list must be the caller's — `404` if either is genuinely missing/soft-deleted, `403` if either exists but belongs to someone else. `409 ITEM_ALREADY_IN_WISHLIST` if it's already there. |
+| DELETE | `/api/items/:id/wishlists/:wishlistId` | O | → `204`. `404 ITEM_NOT_IN_WISHLIST` if that membership doesn't exist. Removing the **last** membership also soft-deletes the item — no confirmation step, unlike deleting a whole wishlist. |
 
 ## Public list view
 

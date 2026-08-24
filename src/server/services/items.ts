@@ -1,14 +1,15 @@
 import "server-only";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import type { CreateItemInput, UpdateItemInput } from "@/lib/schemas/item";
 import { assertOwned } from "../auth/ownership";
 import { getDb } from "../db";
+import { PG_UNIQUE_VIOLATION, isPgError } from "../db/pg-errors";
 import { liveItem } from "../db/helpers";
 import { items, wishlistItems, wishlists } from "../db/schema";
 import type { Db } from "../db/types";
-import { ItemErrors } from "../errors";
+import { ItemErrors, WishlistErrors } from "../errors";
 
 /** What an owner sees about their own item. Never includes `deletedAt`. */
 export type PublicItem = {
@@ -164,5 +165,93 @@ export async function deleteItem(
       .update(items)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(items.id, id));
+  });
+}
+
+/**
+ * `POST /api/items/:id/wishlists`. The surgical counterpart to `deleteItem`'s
+ * blunt one — files an existing item into one more list the caller owns,
+ * touching nothing else. Owner checked on both the item and the target list;
+ * either missing (or not the caller's) is `404`.
+ */
+export async function addItemToWishlist(
+  itemId: string,
+  wishlistId: string,
+  ownerId: string,
+  db: Db = getDb(),
+): Promise<void> {
+  const [item] = await db
+    .select()
+    .from(items)
+    .where(and(eq(items.id, itemId), liveItem))
+    .limit(1);
+  assertOwned(item, ownerId, ItemErrors.notFound);
+
+  const [wishlist] = await db
+    .select()
+    .from(wishlists)
+    .where(eq(wishlists.id, wishlistId))
+    .limit(1);
+  assertOwned(wishlist, ownerId, WishlistErrors.notFound);
+
+  try {
+    await db.insert(wishlistItems).values({ wishlistId, itemId });
+  } catch (error) {
+    // The composite primary key (T020) is what actually guarantees this
+    // can't race into two rows; the check is what turns that into a clean
+    // error instead of a raw constraint violation.
+    if (isPgError(error, PG_UNIQUE_VIOLATION)) throw ItemErrors.alreadyInWishlist();
+    throw error;
+  }
+}
+
+/**
+ * `DELETE /api/items/:id/wishlists/:wishlistId`. Removing an item's *only*
+ * remaining membership also soft-deletes it — data-model.md's "nothing lands
+ * in orphan limbo" rule. No confirmation step, unlike deleting a whole
+ * wishlist: this is one item, one explicit action the caller already chose,
+ * not a bulk operation with a surprising blast radius.
+ *
+ * The membership delete, the remaining-count check, and the conditional soft
+ * delete run in one transaction — a partial result (join row gone but the
+ * item not soft-deleted, or the reverse) would be a real bug.
+ */
+export async function removeItemFromWishlist(
+  itemId: string,
+  wishlistId: string,
+  ownerId: string,
+  db: Db = getDb(),
+): Promise<void> {
+  const [item] = await db
+    .select()
+    .from(items)
+    .where(and(eq(items.id, itemId), liveItem))
+    .limit(1);
+  assertOwned(item, ownerId, ItemErrors.notFound);
+
+  await db.transaction(async (tx) => {
+    const deleted = await tx
+      .delete(wishlistItems)
+      .where(
+        and(eq(wishlistItems.itemId, itemId), eq(wishlistItems.wishlistId, wishlistId)),
+      )
+      .returning({ wishlistId: wishlistItems.wishlistId });
+
+    if (deleted.length === 0) throw ItemErrors.notInWishlist();
+
+    // Bare count(*) is bigint; postgres.js parses that as a string by
+    // default, so an unadorned count would never equal 0 below. Same cast
+    // pattern as wishlists.ts's findSoloItems, for the same reason.
+    const [{ remaining }] = await tx
+      .select({ remaining: sql<number>`count(*)::int` })
+      .from(wishlistItems)
+      .where(eq(wishlistItems.itemId, itemId));
+
+    if (remaining === 0) {
+      await tx
+        .update(items)
+        .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .where(eq(items.id, itemId));
+    }
   });
 }

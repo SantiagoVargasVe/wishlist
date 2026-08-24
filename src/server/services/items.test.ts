@@ -4,7 +4,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { items, users, wishlistItems, wishlists } from "../db/schema";
 import { createTestDb, hasTestDatabase, type TestDb } from "../db/test-support";
 import { DomainError } from "../errors";
-import { createItem, deleteItem, updateItem } from "./items";
+import {
+  addItemToWishlist,
+  createItem,
+  deleteItem,
+  removeItemFromWishlist,
+  updateItem,
+} from "./items";
 
 /** Run and return the DomainError code, or undefined if it succeeded. */
 async function errorCode(promise: Promise<unknown>): Promise<string | undefined> {
@@ -366,6 +372,135 @@ describe.skipIf(!hasTestDatabase)("item CRUD", () => {
         deleteItem("00000000-0000-0000-0000-000000000000", ownerId, ctx.db),
       );
       expect(code).toBe("ITEM_NOT_FOUND");
+    });
+  });
+
+  describe("addItemToWishlist / removeItemFromWishlist", () => {
+    async function seedItemInListA() {
+      return createItem(
+        ownerId,
+        { url: "https://example.com/p", title: "X", wishlistIds: [listA] },
+        ctx.db,
+      );
+    }
+
+    it("files an existing item into a second owned list", async () => {
+      const item = await seedItemInListA();
+      await addItemToWishlist(item.id, listB, ownerId, ctx.db);
+
+      const links = await ctx.db
+        .select()
+        .from(wishlistItems)
+        .where(eq(wishlistItems.itemId, item.id));
+      expect(links.map((l) => l.wishlistId).sort()).toEqual([listA, listB].sort());
+    });
+
+    it("rejects adding to a list that genuinely exists but isn't the caller's", async () => {
+      // The 403/404 split from assertOwned (T022): exists-but-not-yours is
+      // forbidden, not hidden as missing.
+      const item = await seedItemInListA();
+      const code = await errorCode(
+        addItemToWishlist(item.id, otherList, ownerId, ctx.db),
+      );
+      expect(code).toBe("FORBIDDEN");
+    });
+
+    it("rejects adding to a wishlist id that doesn't exist at all", async () => {
+      const item = await seedItemInListA();
+      const code = await errorCode(
+        addItemToWishlist(
+          item.id,
+          "00000000-0000-0000-0000-000000000000",
+          ownerId,
+          ctx.db,
+        ),
+      );
+      expect(code).toBe("WISHLIST_NOT_FOUND");
+    });
+
+    it("rejects adding an item that genuinely exists but belongs to someone else", async () => {
+      const item = await seedItemInListA();
+      const code = await errorCode(
+        addItemToWishlist(item.id, listB, otherId, ctx.db),
+      );
+      expect(code).toBe("FORBIDDEN");
+    });
+
+    it("rejects a duplicate add", async () => {
+      const item = await seedItemInListA();
+      const code = await errorCode(addItemToWishlist(item.id, listA, ownerId, ctx.db));
+      expect(code).toBe("ITEM_ALREADY_IN_WISHLIST");
+    });
+
+    it("removes one membership, leaving the item and its other lists intact", async () => {
+      const item = await seedItemInListA();
+      await addItemToWishlist(item.id, listB, ownerId, ctx.db);
+
+      await removeItemFromWishlist(item.id, listA, ownerId, ctx.db);
+
+      const links = await ctx.db
+        .select()
+        .from(wishlistItems)
+        .where(eq(wishlistItems.itemId, item.id));
+      expect(links.map((l) => l.wishlistId)).toEqual([listB]);
+
+      const [row] = await ctx.db.select().from(items).where(eq(items.id, item.id));
+      expect(row.deletedAt).toBeNull();
+    });
+
+    it("soft-deletes the item when its last membership is removed", async () => {
+      const item = await seedItemInListA();
+
+      await removeItemFromWishlist(item.id, listA, ownerId, ctx.db);
+
+      const [row] = await ctx.db.select().from(items).where(eq(items.id, item.id));
+      expect(row.deletedAt).toBeInstanceOf(Date);
+
+      const links = await ctx.db
+        .select()
+        .from(wishlistItems)
+        .where(eq(wishlistItems.itemId, item.id));
+      expect(links).toHaveLength(0);
+    });
+
+    it("returns not-found when removing a membership that doesn't exist", async () => {
+      const item = await seedItemInListA();
+      // listB is real and owned, but the item was never filed into it.
+      const code = await errorCode(
+        removeItemFromWishlist(item.id, listB, ownerId, ctx.db),
+      );
+      expect(code).toBe("ITEM_NOT_IN_WISHLIST");
+
+      // Nothing should have been touched by the failed attempt.
+      const [row] = await ctx.db.select().from(items).where(eq(items.id, item.id));
+      expect(row.deletedAt).toBeNull();
+    });
+
+    it("returns not-found (not forbidden) for a genuinely unknown item id", async () => {
+      const unknownId = "00000000-0000-0000-0000-000000000000";
+      const addCode = await errorCode(
+        addItemToWishlist(unknownId, listB, ownerId, ctx.db),
+      );
+      const removeCode = await errorCode(
+        removeItemFromWishlist(unknownId, listA, ownerId, ctx.db),
+      );
+
+      expect(addCode).toBe("ITEM_NOT_FOUND");
+      expect(removeCode).toBe("ITEM_NOT_FOUND");
+    });
+
+    it("rejects a non-owner on both endpoints", async () => {
+      const item = await seedItemInListA();
+
+      const addCode = await errorCode(
+        addItemToWishlist(item.id, listB, otherId, ctx.db),
+      );
+      const removeCode = await errorCode(
+        removeItemFromWishlist(item.id, listA, otherId, ctx.db),
+      );
+
+      expect(addCode).toBe("FORBIDDEN");
+      expect(removeCode).toBe("FORBIDDEN");
     });
   });
 });
