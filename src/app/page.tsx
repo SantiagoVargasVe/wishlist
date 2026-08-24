@@ -4,7 +4,6 @@
 // tests instead of cluttering this soon-to-be-deleted page further.
 
 import { Button } from "./_ui/button";
-import { ThemeToggle } from "./_ui/theme-toggle";
 
 const TOKENS = [
   ["bg-background text-foreground border border-border", "background"],
@@ -19,11 +18,7 @@ const TOKENS = [
 export default function Home() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-12">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Wishlist</h1>
-        <ThemeToggle />
-      </div>
-      <p className="mt-2 text-muted-foreground">
+      <p className="text-muted-foreground">
         Scaffold listo. La aplicación se construye en el backlog.
       </p>
 

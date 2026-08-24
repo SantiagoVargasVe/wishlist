@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
 
+import { t } from "@/lib/i18n";
+
+import { AppShell } from "./_shell/app-shell";
 import { ThemeScript } from "./_ui/theme-script";
 import { Providers } from "./providers";
 
@@ -15,8 +18,8 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Wishlist",
-  description: "Guarda lo que quieres y compártelo con quien quieras.",
+  title: t("common.appName"),
+  description: t("common.tagline"),
 };
 
 export default function RootLayout({
@@ -28,7 +31,9 @@ export default function RootLayout({
         <ThemeScript />
       </head>
       <body className="min-h-dvh antialiased">
-        <Providers>{children}</Providers>
+        <Providers>
+          <AppShell>{children}</AppShell>
+        </Providers>
       </body>
     </html>
   );

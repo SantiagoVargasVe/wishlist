@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { t } from "@/lib/i18n";
+
 import { Button } from "./button";
 
 type Theme = "light" | "dark";
@@ -39,7 +41,7 @@ export function ThemeToggle() {
       variant="ghost"
       size="sm"
       onClick={toggle}
-      aria-label={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+      aria-label={t("theme.switchTo", { mode: theme === "dark" ? t("theme.light") : t("theme.dark") })}
     >
       {theme === "dark" ? "☀️" : "🌙"}
     </Button>
