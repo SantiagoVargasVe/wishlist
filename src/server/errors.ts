@@ -45,8 +45,8 @@ export class NotFoundError extends DomainError {
 }
 
 export class ConflictError extends DomainError {
-  constructor(code: string, message: string) {
-    super(code, message, 409);
+  constructor(code: string, message: string, details?: Record<string, unknown>) {
+    super(code, message, 409, details);
   }
 }
 
@@ -72,6 +72,27 @@ export const InviteErrors = {
 
 export const emailTaken = () =>
   new ConflictError("EMAIL_TAKEN", "An account with that email already exists");
+
+/** Wishlist-specific failures. */
+export const WishlistErrors = {
+  notFound: () => new NotFoundError("WISHLIST_NOT_FOUND", "Wishlist not found"),
+  cannotDeleteDefault: () =>
+    new ConflictError(
+      "DEFAULT_WISHLIST_UNDELETABLE",
+      "The default wishlist can't be deleted",
+    ),
+  /**
+   * The "prompt" data-model.md describes: deleting this list would orphan
+   * items that live nowhere else. Nothing is deleted; the client re-requests
+   * with `?deleteOrphans=true` once the user confirms.
+   */
+  confirmDeleteOrphans: (orphans: { id: string; title: string }[]) =>
+    new ConflictError(
+      "CONFIRM_DELETE_ORPHANS",
+      "Some items only belong to this list — confirm to delete them too",
+      { orphanItems: orphans },
+    ),
+};
 
 /**
  * Deliberately generic. Distinguishing "no such user" from "wrong password"
