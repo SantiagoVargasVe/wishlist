@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { inviteCodes, users } from "../db/schema";
+import { inviteCodes, users, wishlists } from "../db/schema";
 import { createTestDb, hasTestDatabase, type TestDb } from "../db/test-support";
 import { DomainError } from "../errors";
 import { getUserById, loginUser, registerUser } from "./auth";
@@ -36,12 +36,12 @@ describe.skipIf(!hasTestDatabase)("registerUser", () => {
   });
 
   beforeEach(async () => {
-    await ctx.sql`TRUNCATE invite_codes, users RESTART IDENTITY CASCADE`;
+    await ctx.sql`TRUNCATE wishlists, invite_codes, users RESTART IDENTITY CASCADE`;
     await ctx.db.insert(inviteCodes).values({ code: input.inviteCode });
   });
 
   it("creates the user and consumes the code", async () => {
-    const user = await registerUser(input, ctx.db);
+    const { user } = await registerUser(input, ctx.db);
 
     expect(user.email).toBe("alice@example.com");
     expect(user.displayName).toBe("Alice");
@@ -55,8 +55,26 @@ describe.skipIf(!hasTestDatabase)("registerUser", () => {
     expect(code.usedAt).toBeInstanceOf(Date);
   });
 
+  it("creates exactly one default wishlist, owned by the new user", async () => {
+    // A user with no default list is a broken state — the share CTA in the
+    // product spec depends on it existing, and nothing else ever creates one.
+    const { user, wishlist } = await registerUser(input, ctx.db);
+
+    expect(wishlist.title).toBe("Wishlist");
+    expect(wishlist.isDefault).toBe(true);
+    expect(wishlist.slug).toMatch(/^[a-z0-9]{10}$/);
+
+    const rows = await ctx.db
+      .select()
+      .from(wishlists)
+      .where(eq(wishlists.ownerId, user.id));
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe(wishlist.id);
+  });
+
   it("never returns the password hash", async () => {
-    const user = await registerUser(input, ctx.db);
+    const { user } = await registerUser(input, ctx.db);
     expect(Object.keys(user)).toEqual(["id", "email", "displayName"]);
   });
 
@@ -102,7 +120,7 @@ describe.skipIf(!hasTestDatabase)("registerUser", () => {
       expiresAt: new Date(Date.now() + 60_000),
     });
 
-    const user = await registerUser({
+    const { user } = await registerUser({
       ...input,
       inviteCode: "FUTUREABCD",
     }, ctx.db);
@@ -143,15 +161,20 @@ describe.skipIf(!hasTestDatabase)("registerUser", () => {
     expect(code.usedBy).toBeNull();
   });
 
-  it("creates no orphan user when the code is lost mid-registration", async () => {
-    // The transaction has to roll back the user, not just skip the code.
+  it("creates no orphan user or wishlist when the code is lost mid-registration", async () => {
+    // The transaction has to roll back everything it created, not just skip
+    // the code. A wishlist surviving without its user (or vice versa) is
+    // exactly the broken state this task exists to prevent.
     await registerUser(input, ctx.db);
-    const before = await ctx.db.select().from(users);
+    const usersBefore = await ctx.db.select().from(users);
+    const wishlistsBefore = await ctx.db.select().from(wishlists);
 
     await errorCode(registerUser({ ...input, email: "bob@example.com" }, ctx.db));
 
-    const after = await ctx.db.select().from(users);
-    expect(after).toHaveLength(before.length);
+    expect(await ctx.db.select().from(users)).toHaveLength(usersBefore.length);
+    expect(await ctx.db.select().from(wishlists)).toHaveLength(
+      wishlistsBefore.length,
+    );
   });
 
   it("lets exactly one of two concurrent registrations win the same code", async () => {
@@ -166,6 +189,11 @@ describe.skipIf(!hasTestDatabase)("registerUser", () => {
 
     const allUsers = await ctx.db.select().from(users);
     expect(allUsers).toHaveLength(1);
+
+    // The winner's default wishlist, and only theirs.
+    const allWishlists = await ctx.db.select().from(wishlists);
+    expect(allWishlists).toHaveLength(1);
+    expect(allWishlists[0].ownerId).toBe(allUsers[0].id);
   });
 });
 
@@ -183,7 +211,7 @@ describe.skipIf(!hasTestDatabase)("loginUser", () => {
   });
 
   beforeEach(async () => {
-    await ctx.sql`TRUNCATE invite_codes, users RESTART IDENTITY CASCADE`;
+    await ctx.sql`TRUNCATE wishlists, invite_codes, users RESTART IDENTITY CASCADE`;
     await ctx.db.insert(inviteCodes).values({ code: input.inviteCode });
     await registerUser(input, ctx.db);
   });
@@ -255,19 +283,19 @@ describe.skipIf(!hasTestDatabase)("getUserById", () => {
   });
 
   beforeEach(async () => {
-    await ctx.sql`TRUNCATE invite_codes, users RESTART IDENTITY CASCADE`;
+    await ctx.sql`TRUNCATE wishlists, invite_codes, users RESTART IDENTITY CASCADE`;
     await ctx.db.insert(inviteCodes).values({ code: input.inviteCode });
   });
 
   it("returns the user", async () => {
-    const created = await registerUser(input, ctx.db);
+    const { user: created } = await registerUser(input, ctx.db);
     const found = await getUserById(created.id, ctx.db);
     expect(found).toEqual(created);
   });
 
   it("never selects the password hash", async () => {
     // /api/auth/me serialises this straight to the client.
-    const created = await registerUser(input, ctx.db);
+    const { user: created } = await registerUser(input, ctx.db);
     const found = await getUserById(created.id, ctx.db);
     expect(Object.keys(found!)).toEqual(["id", "email", "displayName"]);
   });
