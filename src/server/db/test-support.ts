@@ -73,7 +73,9 @@ export async function createTestDb(): Promise<TestDb> {
     throw new Error("DATABASE_URL_TEST is not set");
   }
 
-  const sql = postgres(TEST_DATABASE_URL, { max: 1 });
+  // Silence "already exists, skipping" NOTICEs — dropping and recreating the
+  // schema every run emits a wall of them that buries real test output.
+  const sql = postgres(TEST_DATABASE_URL, { max: 1, onnotice: () => {} });
 
   await sql.unsafe(`
     DROP SCHEMA IF EXISTS public CASCADE;

@@ -1,11 +1,18 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
+  char,
+  check,
   customType,
   doublePrecision,
   index,
+  integer,
+  numeric,
   pgTable,
+  primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -16,7 +23,6 @@ import {
  * docs/context/data-model.md before adding anything here.
  *
  * Still to come:
- *   T020  wishlists, items, wishlist_items
  *   T040  item_claims
  */
 
@@ -86,8 +92,155 @@ export const rateLimits = pgTable(
   (table) => [index("rate_limits_updated_at_idx").on(table.updatedAt)],
 );
 
+/**
+ * A named collection of items.
+ *
+ * `slug` is what appears in a share URL, not the uuid — shorter, and it keeps
+ * the primary key out of links. Possession of the slug IS the permission for
+ * the public view, so it must be unguessable, not merely unique.
+ */
+export const wishlists = pgTable(
+  "wishlists",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    slug: text("slug").notNull().unique(),
+    isDefault: boolean("is_default").notNull().default(false),
+    /**
+     * Defaults to true. A spoiled surprise is the one outcome you cannot
+     * recover from, so the safe direction is hiding claims (ADR-0005).
+     */
+    hideClaimsFromOwner: boolean("hide_claims_from_owner")
+      .notNull()
+      .default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (table) => [
+    /**
+     * Exactly one default list per user, enforced by Postgres rather than
+     * application code — a partial unique index cannot be raced, whereas a
+     * check-then-insert can.
+     */
+    uniqueIndex("wishlists_one_default_per_owner")
+      .on(table.ownerId)
+      .where(sql`${table.isDefault}`),
+    index("wishlists_owner_idx").on(table.ownerId),
+  ],
+);
+
+/**
+ * A saved product.
+ *
+ * Scoped to its owner: two users pasting the same link get two independent
+ * rows, so bought state can never leak between them.
+ */
+export const items = pgTable(
+  "items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    title: text("title").notNull(),
+    notes: text("notes"),
+
+    /** Bare filename resolved against the images directory, e.g. `<uuid>.webp`. */
+    imagePath: text("image_path"),
+    /** Kept so a lost image can be re-fetched while the listing is live (ADR-0004). */
+    sourceImageUrl: text("source_image_url"),
+    siteName: text("site_name"),
+
+    /** Money is numeric, never float. See docs/context/data-model.md § Money. */
+    priceAmount: numeric("price_amount", { precision: 14, scale: 2 }),
+    priceCurrency: char("price_currency", { length: 3 }),
+    /**
+     * Normalised value for cross-currency filtering only — "under 100" says
+     * nothing across COP and USD. Never displayed; the UI always shows the
+     * original amount and currency.
+     */
+    priceUsdSnapshot: numeric("price_usd_snapshot", { precision: 14, scale: 2 }),
+    fxRateUsed: numeric("fx_rate_used", { precision: 14, scale: 6 }),
+
+    /** `failed` is a normal outcome — roughly half of retailers block scraping. */
+    ogStatus: text("og_status").notNull().default("pending"),
+    ogFetchedAt: timestamp("og_fetched_at", { withTimezone: true }),
+
+    /**
+     * Soft delete. An item may already be claimed, and hard-deleting would
+     * destroy that record and make an accidental delete unrecoverable.
+     */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (table) => [
+    check(
+      "items_og_status_valid",
+      sql`${table.ogStatus} IN ('pending', 'ok', 'failed', 'manual')`,
+    ),
+    /**
+     * Only what the FX snapshot can actually normalise. Adding a currency is a
+     * migration, which is the honest cost — silently storing an unsupported
+     * code would corrupt filtering with no visible error.
+     */
+    check(
+      "items_currency_supported",
+      sql`${table.priceCurrency} IS NULL OR ${table.priceCurrency} IN ('COP', 'USD')`,
+    ),
+    /** A price with no currency is meaningless, and so is the reverse. */
+    check(
+      "items_price_currency_paired",
+      sql`(${table.priceAmount} IS NULL) = (${table.priceCurrency} IS NULL)`,
+    ),
+    /** Every read filters deleted rows, so the index matches that shape. */
+    index("items_owner_live_idx")
+      .on(table.ownerId)
+      .where(sql`${table.deletedAt} IS NULL`),
+  ],
+);
+
+/** Many-to-many. Hard delete: unfiling an item is not destructive. */
+export const wishlistItems = pgTable(
+  "wishlist_items",
+  {
+    wishlistId: uuid("wishlist_id")
+      .notNull()
+      .references(() => wishlists.id, { onDelete: "cascade" }),
+    itemId: uuid("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0),
+    addedAt: timestamp("added_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (table) => [
+    primaryKey({ columns: [table.wishlistId, table.itemId] }),
+    index("wishlist_items_item_idx").on(table.itemId),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type InviteCode = typeof inviteCodes.$inferSelect;
 export type NewInviteCode = typeof inviteCodes.$inferInsert;
 export type RateLimit = typeof rateLimits.$inferSelect;
+export type Wishlist = typeof wishlists.$inferSelect;
+export type NewWishlist = typeof wishlists.$inferInsert;
+export type Item = typeof items.$inferSelect;
+export type NewItem = typeof items.$inferInsert;
+export type WishlistItem = typeof wishlistItems.$inferSelect;

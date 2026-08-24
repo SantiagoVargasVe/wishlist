@@ -22,7 +22,9 @@ import { getConfig } from "../config";
  */
 export async function runMigrations(): Promise<void> {
   const { DATABASE_URL } = getConfig();
-  const sql = postgres(DATABASE_URL, { max: 1 });
+  // Notices here are all benign 'already exists, skipping' from the migrator's
+  // own bookkeeping, and they fire on every container start.
+  const sql = postgres(DATABASE_URL, { max: 1, onnotice: () => {} });
 
   try {
     await migrate(drizzle(sql), {
