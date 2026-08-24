@@ -27,13 +27,26 @@ get something reviewable back. If it needs "as we discussed," it's not done bein
 ## Lifecycle
 
 1. Pick a `todo` task whose `depends_on` are all `done`
-2. Set `status: in-progress`
-3. Build it. Read only the docs the task's Context names.
-4. **Write the tests in the same commit** — see [testing.md](../docs/context/testing.md)
-5. Set `status: done` **in the same commit as the code**, so status never drifts from reality
-6. Reference the id in the commit: `feat(items): add soft delete [T023]`
+2. **Branch off `main`**: `feat/T023-item-soft-delete`
+3. Set `status: in-progress`
+4. Build it. Read only the docs the task's Context names.
+5. **Write the tests in the same commit** — see [testing.md](../docs/context/testing.md)
+6. Set `status: done` **in the same commit as the code**, so status never drifts from reality
+7. Reference the id in the commit: `feat(items): add soft delete [T023]`
+8. **Open a PR.** Never push to `main` directly — Santiago reviews and merges.
 
-A task is done when CI is green, not when it works locally.
+A task is done when CI is green on the PR, not when it works locally.
+
+### Branch naming
+
+`<type>/<task-id>-<short-slug>` — `feat/T023-item-soft-delete`, `fix/T040-claim-race`,
+`chore/T002-local-postgres`. One task per branch, one PR per task. If a task turns out to need
+splitting, write the second task file and open a second PR rather than growing the first.
+
+### PR description
+
+State the task id, what changed, and how you verified it. If you deviated from the task's
+acceptance criteria, say so explicitly and why — that's the part a reviewer can't reconstruct.
 
 If you discover work outside the task's scope, write a new task file rather than widening the
 current one. Scope creep inside a task is how tasks stop being self-contained.

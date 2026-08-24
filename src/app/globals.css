@@ -26,7 +26,7 @@
   --input: oklch(0.9329 0.0124 301.2783);
   --ring: oklch(0.6104 0.0767 299.7335);
 
-  --font-sans: Geist, sans-serif;
+  --font-sans: var(--font-geist-sans), Geist, sans-serif;
   --font-serif: "Lora", Georgia, serif;
   --font-mono: "Fira Code", "Courier New", monospace;
 

@@ -86,6 +86,9 @@ Tasks live in [backlog/tasks/](backlog/tasks/) as self-contained markdown files 
 enough context to be picked up cold. See [backlog/README.md](backlog/README.md) for the
 lifecycle and the task format.
 
+**Never commit to `main`.** Branch as `<type>/<task-id>-<slug>`, open a PR, and let Santiago
+review and merge. One task per branch.
+
 When you finish a task, update its `status` frontmatter in the same commit as the code.
 
 ## Conventions
