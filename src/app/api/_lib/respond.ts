@@ -16,6 +16,14 @@ export type ErrorEnvelope = {
 
 export function errorResponse(error: unknown): Response {
   if (error instanceof DomainError) {
+    const headers = new Headers();
+
+    // Tell the client when to come back rather than making it guess.
+    const retryAfter = error.details?.retryAfterSeconds;
+    if (typeof retryAfter === "number") {
+      headers.set("Retry-After", String(retryAfter));
+    }
+
     return Response.json(
       {
         error: {
@@ -24,7 +32,7 @@ export function errorResponse(error: unknown): Response {
           ...(error.details ? { details: error.details } : {}),
         },
       } satisfies ErrorEnvelope,
-      { status: error.status },
+      { status: error.status, headers },
     );
   }
 

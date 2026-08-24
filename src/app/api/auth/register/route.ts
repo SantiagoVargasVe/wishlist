@@ -1,3 +1,6 @@
+import { clientIp } from "@/server/rate-limit/client-ip";
+import { enforce } from "@/server/rate-limit";
+import { policies } from "@/server/rate-limit/policies";
 import { registerUser } from "@/server/services/auth";
 import { registerSchema } from "@/lib/schemas/auth";
 
@@ -12,6 +15,8 @@ import { handle } from "../../_lib/respond";
  * No session cookie yet — that arrives with T012, which owns JWT issuing.
  */
 export const POST = handle(async (request) => {
+  await enforce(policies.register, `register:${clientIp(request)}`);
+
   const input = registerSchema.parse(await request.json());
   const user = await registerUser(input);
 

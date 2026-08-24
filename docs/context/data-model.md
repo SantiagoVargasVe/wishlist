@@ -75,10 +75,22 @@ The many-to-many join. Hard delete — removing an item from a list is not destr
 Avoids re-scraping a URL that was pasted recently. Also blunts abuse of `/api/preview`.
 
 ### `rate_limits`
-`key` pk · `tokens` int · `updated_at`
+`key` pk · `tokens` double precision · `updated_at`
 
 Token bucket in Postgres. No Redis — the volume doesn't justify another container, and
 Cloudflare absorbs anything large before it reaches us.
+
+`tokens` is a float rather than an integer so refill is continuous: a bucket gaining 0.011
+tokens per second behaves smoothly instead of stepping once per interval.
+
+Consumption is a **single atomic statement** (`INSERT ... ON CONFLICT DO UPDATE ... WHERE`).
+A read-then-write lets concurrent requests all observe the last token and all take it — the
+exact failure a rate limiter exists to prevent. The `WHERE` on the update also means a rejected
+request leaves `updated_at` untouched; advancing it would restart the refill clock on every
+retry and lock a hammering client out permanently rather than for the window.
+
+Rows accumulate one per distinct key, so `pruneIdleBuckets` deletes buckets idle longer than
+their window — safe because a fully-refilled bucket is indistinguishable from a fresh one.
 
 ## Money
 
