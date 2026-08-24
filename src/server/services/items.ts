@@ -28,7 +28,8 @@ export type PublicItem = {
   updatedAt: Date;
 };
 
-const itemColumns = {
+/** Exported for the same reason `wishlistColumns` is — see wishlists.ts. */
+export const itemColumns = {
   id: items.id,
   url: items.url,
   title: items.title,

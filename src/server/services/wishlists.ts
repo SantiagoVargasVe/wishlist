@@ -19,7 +19,12 @@ export type PublicWishlist = {
   hideClaimsFromOwner: boolean;
 };
 
-const wishlistColumns = {
+/**
+ * Exported so the aggregate read (T025) can join wishlists and items without
+ * hand-duplicating "what's safe to expose" in a third file — a field added
+ * here and forgotten there would otherwise be a silent leak.
+ */
+export const wishlistColumns = {
   id: wishlists.id,
   slug: wishlists.slug,
   title: wishlists.title,

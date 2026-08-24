@@ -87,7 +87,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 - `T022` Wishlist CRUD (default-list protection, orphan-item confirmation) — **done**
 - `T023` Item CRUD with soft delete — **done**
 - `T024` Add/remove item to/from list, last-list removal rule — **done**
-- `T025` `GET /api/me` aggregate endpoint
+- `T025` `GET /api/me` aggregate endpoint — **done**
 
 **E4 — OG enrichment**
 - `T030` `safe-fetch` SSRF guard + exhaustive tests — **written**
