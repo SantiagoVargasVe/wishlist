@@ -115,4 +115,5 @@ and a per-slug cap matter more than raw request throttling.
 |---|---|
 | Slug leak = full list access | Capability URLs are the design. Slugs are unguessable; rotation can be added if needed. |
 | Scraping the residential IP | Low volume, on-demand only, cached. No scheduled crawling — that's part of why the cron-refresh design was rejected. |
-| Host instability | Pre-existing hardware issue, mitigated by watchdog + `restart: unless-stopped`. Don't share links widely until the M.2 is reseated and backups run. |
+| Host instability | Pre-existing hardware issue, mitigated by watchdog + `restart: unless-stopped`. Don't share links widely until the M.2 is reseated. |
+| No backups | Deliberate — hobby project, data is reconstructable. A corrupted database means re-adding items, not losing anything irreplaceable. |

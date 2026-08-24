@@ -45,7 +45,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 | **E4** og | SSRF-safe fetch, parser, preview endpoint, image pipeline | T030–T034 |
 | **E5** claims | Claim schema, endpoints, tokens, rate limits, owner filtering | T040–T043 |
 | **E6** frontend | Shell, list page, modals, filters, share CTA, OG metadata | T050–T058 |
-| **E7** deploy | Tunnel hostname, prod compose, restic, WAF rules | T060–T063 |
+| **E7** deploy | Tunnel hostname, prod compose, WAF rules | T060–T062 |
 
 ## Task index
 
@@ -96,8 +96,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 **E7 — Deploy**
 - `T060` Add `wish.santiagovargas.co` to the existing tunnel
 - `T061` Production compose at `~/nas/wishlist/`
-- `T062` Add to restic backup scope (pg_dump + images)
-- `T063` Cloudflare WAF rate-limit rules
+- `T062` Cloudflare WAF rate-limit rules
 
 Five tasks are fully written as worked examples — the highest-risk and most-referenced ones.
 The rest are one-liners here; expand them into files as you pick them up, following the pattern.

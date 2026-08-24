@@ -13,8 +13,9 @@ Product images are downloaded and stored rather than hotlinked, so cards survive
 listings, rotated CDN paths, and `Referer`-based hotlink blocking. The reasoning — including why
 a cron that refreshes hotlinks was rejected — is in [ADR-0004](../../docs/adr/0004-store-images.md).
 
-Images live at `data/images/{item_id}.webp`, bind-mounted into the container and included in the
-restic backup scope alongside the DB.
+Images live at `data/images/{item_id}.webp`, bind-mounted into the container. The volume is not
+backed up, so `source_image_url` must be preserved on every row — it's the only way to rebuild a
+lost image for a listing that's still live.
 
 ## Acceptance criteria
 

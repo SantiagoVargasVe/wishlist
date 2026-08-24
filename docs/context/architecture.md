@@ -79,12 +79,15 @@ backup/restore story — sharing it would couple two unrelated services and comp
 
 ## Operational notes
 
-- **Backups.** `~/nas/wishlist/` goes into the restic scope: nightly `pg_dump` to a staging dir,
-  plus the images directory, captured in one snapshot so DB and images restore as a unit.
+- **Not backed up — deliberately.** This is a hobby project and its data is reconstructable:
+  items can be re-added from their URLs. The host's restic scope covers Immich and Nextcloud
+  only, and keeping that job narrow is what keeps it reliable. Treat the database as expendable;
+  don't build features that assume durable history.
 - **Host reliability.** The server has an open issue with intermittent silent freezes (SMART
   `174 Unexpected_Power_Loss`, suspected loose M.2). A 30s hardware watchdog reboots it and
   `restart: unless-stopped` brings containers back. Fine for this app — but don't share the link
-  widely until the M.2 is reseated and backups are running.
+  widely until the M.2 is reseated. Abrupt power loss can corrupt Postgres, and with no backup
+  that means starting the data over.
 - **Outbound scraping leaves via the residential ISP IP**, not the tunnel (tunnels are inbound
   only). That's the same IP the Minecraft DDNS points at, so avoid anything that looks like bulk
   crawling and gets it rate-limited.

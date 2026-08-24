@@ -42,7 +42,10 @@ downloading a file once.
 ## Consequences
 
 - ~40KB per item. A thousand items is ~40MB, negligible against the host's ~210GB.
-- `data/images/` joins the restic backup scope, so DB and images restore as a unit.
+- `data/images/` is not backed up (see [architecture.md](../context/architecture.md) §
+  *Operational notes*). If the volume is lost, images can be re-fetched from
+  `source_image_url` for listings that are still live — which is part of why that column
+  is kept.
 - Orphaned files need a **weekly local sweep** — no outbound requests, not a scraper. This is the
   cron idea redirected to a job it can actually do.
 - Stored images can drift out of date if a retailer changes the product photo. Accepted:

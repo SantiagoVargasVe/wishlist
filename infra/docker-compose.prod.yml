@@ -52,6 +52,7 @@ networks:
   default:
     name: wishlist_default
 
-# Backups (T062): nightly `pg_dump` into a staging dir, then restic captures that plus
-# ./data/images in one snapshot, so the database and its images restore as a unit.
-# Raw Postgres data directories are not safe to back up hot — always dump first.
+# NOT in the host's backup scope, by choice. restic covers Immich and Nextcloud only —
+# their data is irreplaceable, this app's isn't. Items can be re-added from their URLs.
+# If that ever changes: dump the DB first (raw Postgres data dirs aren't safe to copy hot)
+# and capture the dump alongside ./data/images so they restore as a unit.
