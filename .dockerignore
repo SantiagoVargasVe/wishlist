@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.github
+data
+coverage
+docs
+backlog
+*.md
+.env
+.env.*
+!.env.example
+infra/data
+*.tsbuildinfo
