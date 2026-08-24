@@ -72,7 +72,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 - `T004` Base UI primitives, dark mode, TanStack Query base client — **written**
 
 **E2 — Auth**
-- `T010` Schema: `users`, `invite_codes` + `seed:invite` script
+- `T010` Schema: `users`, `invite_codes` + `seed:invite` script — **done**
 - `T011` `POST /api/auth/register` with invite consumption + default list (transactional)
 - `T012` Login / logout, JWT signing, httpOnly cookie
 - `T013` Session helper + ownership guards in services
