@@ -2,7 +2,7 @@
 id: T020
 title: Schema for wishlists, items, and the join table
 epic: E3-core-domain
-status: todo
+status: done
 depends_on: [T003, T010]
 size: M
 ---
