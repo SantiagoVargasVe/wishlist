@@ -72,3 +72,10 @@ export const InviteErrors = {
 
 export const emailTaken = () =>
   new ConflictError("EMAIL_TAKEN", "An account with that email already exists");
+
+/**
+ * Deliberately generic. Distinguishing "no such user" from "wrong password"
+ * tells an attacker which addresses are registered.
+ */
+export const invalidCredentials = () =>
+  new DomainError("INVALID_CREDENTIALS", "Email or password is incorrect", 401);

@@ -2,13 +2,13 @@ import "server-only";
 
 import { and, eq, isNull, or, gt, sql } from "drizzle-orm";
 
-import { hashPassword } from "../auth/password";
+import { hashPassword, verifyPassword } from "../auth/password";
 import { getDb } from "../db";
 import { inviteCodes, users } from "../db/schema";
 import type { Db } from "../db/types";
 import { PG_UNIQUE_VIOLATION, isPgError } from "../db/pg-errors";
-import { InviteErrors, emailTaken } from "../errors";
-import type { RegisterInput } from "@/lib/schemas/auth";
+import { InviteErrors, emailTaken, invalidCredentials } from "../errors";
+import type { LoginInput, RegisterInput } from "@/lib/schemas/auth";
 
 /** What callers may see. Never includes the password hash. */
 export type PublicUser = {
@@ -103,4 +103,59 @@ export async function registerUser(
 
     return user;
   });
+}
+
+/**
+ * A real Argon2id hash of a random string, verified against when no user
+ * matches.
+ *
+ * Without it, an unknown email returns as soon as the SELECT misses, while a
+ * known email pays ~50-100ms of hashing. That difference is measurable over the
+ * network and turns login into an account-enumeration oracle — which would undo
+ * the generic error message.
+ *
+ * Not a secret. It exists purely to burn a comparable amount of time.
+ */
+const TIMING_DUMMY_HASH =
+  "$argon2id$v=19$m=19456,t=2,p=1$FdXj8OOoTTHAFNXlJ/eHig$pyagA5O2KwoINN9tP8GRXoj3CnDZLoCL0trVGiGfYiM";
+
+/** Verify credentials. Throws the same error for every kind of failure. */
+export async function loginUser(
+  input: LoginInput,
+  db: Db = getDb(),
+): Promise<PublicUser> {
+  // citext makes this case-insensitive, so login matches however the address
+  // was typed at registration.
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, input.email))
+    .limit(1);
+
+  const passwordMatches = await verifyPassword(
+    input.password,
+    user?.passwordHash ?? TIMING_DUMMY_HASH,
+  );
+
+  if (!user || !passwordMatches) throw invalidCredentials();
+
+  return { id: user.id, email: user.email, displayName: user.displayName };
+}
+
+/** Look up a user by id. Returns null rather than throwing — callers decide. */
+export async function getUserById(
+  id: string,
+  db: Db = getDb(),
+): Promise<PublicUser | null> {
+  const [user] = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      displayName: users.displayName,
+    })
+    .from(users)
+    .where(eq(users.id, id))
+    .limit(1);
+
+  return user ?? null;
 }
