@@ -2,7 +2,7 @@
 id: T004
 title: Base UI setup and shared component primitives
 epic: E1-foundation
-status: todo
+status: done
 depends_on: [T001]
 size: M
 ---

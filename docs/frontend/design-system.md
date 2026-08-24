@@ -172,6 +172,15 @@ src/lib/schemas/item.ts   →  createItemSchema
 Client and server can't disagree about what's valid, and adding a field is one edit. Server-side
 validation stays mandatory regardless — the client is not a trust boundary.
 
+**Use the `Field` primitive (`src/app/_ui/field.tsx`), not Base UI's `Field.Error` directly.**
+`Field.Error`'s own source computes its displayed text from native `ValidityState` or Base UI's
+own `Form` component's error map — it **ignores whatever JSX children you hand it**. It's built
+around Base UI's own validation system, not an external library like RHF, so
+`<Field.Error>{rhfMessage}</Field.Error>` silently renders nothing. `Field.Root`'s `invalid` prop
+is the part that's real and worth using — it correctly drives `data-invalid`/`aria-invalid` on the
+label and control. Our `Field` wrapper renders the error text as a plain element instead; pass
+`fieldState.error?.message` into its `error` prop and don't reach for `Field.Error` yourself.
+
 ## Data — TanStack Query
 
 One base fetcher, everything built on it. No bare `fetch()` in a component, ever.
