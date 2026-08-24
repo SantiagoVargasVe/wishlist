@@ -103,7 +103,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 - `T043` `hide_claims_from_owner` server-side stripping
 
 **E6 — Frontend**
-- `T050` App shell, layout, i18n scaffolding (Spanish-first)
+- `T050` App shell, layout, i18n scaffolding (Spanish-first) — **done**
 - `T051` `/w/[slug]` owner view
 - `T052` `/w/[slug]` visitor view
 - `T053` Add-item modal with live OG preview
