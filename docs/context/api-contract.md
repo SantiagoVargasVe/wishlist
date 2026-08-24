@@ -35,12 +35,18 @@ Auth column below: **—** public · **A** authenticated · **O** owner only
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/api/me` | A | **The one aggregate read.** All of the user's lists with their items, joins, and counts, in a single response. |
+| GET | `/api/me` | A | **The one aggregate read.** `200 { wishlists: [{ id, slug, title, isDefault, hideClaimsFromOwner, items: [...] }] }`. `401` if not logged in. |
 
-`GET /api/me` is deliberately the only owner read — it's what the whole owner UI renders from.
-It respects `hide_claims_from_owner` per list: for lists with the flag on, claim data is
-**stripped server-side** and the response carries no hint that a claim exists. Never send it
-and hide it in the client.
+Not `/api/auth/me` (identity, T012) — this one never returns user info, only the wishlist
+aggregate. `GET /api/me` is deliberately the only owner read; it's what the whole owner UI renders
+from, and it's **one join query**, not one round trip per wishlist. Default list sorts first; an
+item belonging to several lists appears once **under each** — that's the correct shape for a UI
+that renders one wishlist's items at a time, not a duplication bug.
+
+Once claims exist (T040), it will respect `hide_claims_from_owner` per list: for lists with the
+flag on, claim data will be **stripped server-side** and the response will carry no hint that a
+claim exists. Never send it and hide it in the client. **Not implemented yet** — there is no claim
+data anywhere in today's response, not even a placeholder.
 
 ## Preview
 
