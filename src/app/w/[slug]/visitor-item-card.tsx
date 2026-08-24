@@ -4,12 +4,13 @@ import { t } from "@/lib/i18n";
 import { formatMoney } from "@/lib/money";
 import type { PublicVisitorItem } from "@/server/services/public-wishlist";
 
+import { ClaimButton } from "./claim-button";
+
 /**
- * Read-only, same as T051's owner card — the claim/unclaim button is T041.
- * The title (not the whole card) is the outbound link, deliberately, so
- * T041 has room to add a button below without nesting interactive elements.
+ * The title (not the whole card) is the outbound link, deliberately, so the
+ * claim/undo button below has room without nesting interactive elements.
  */
-export function VisitorItemCard({ item }: { item: PublicVisitorItem }) {
+export function VisitorItemCard({ slug, item }: { slug: string; item: PublicVisitorItem }) {
   const price =
     item.priceAmount && item.priceCurrency
       ? formatMoney(item.priceAmount, item.priceCurrency)
@@ -35,7 +36,7 @@ export function VisitorItemCard({ item }: { item: PublicVisitorItem }) {
           </span>
         )}
       </div>
-      <div className="flex flex-1 flex-col gap-1 p-3">
+      <div className="flex flex-1 flex-col gap-2 p-3">
         <a
           href={item.url}
           target="_blank"
@@ -45,6 +46,7 @@ export function VisitorItemCard({ item }: { item: PublicVisitorItem }) {
           {item.title}
         </a>
         {price && <p className="text-sm text-muted-foreground">{price}</p>}
+        <ClaimButton slug={slug} item={item} />
       </div>
     </div>
   );

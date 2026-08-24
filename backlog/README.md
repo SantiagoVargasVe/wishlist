@@ -98,7 +98,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 
 **E5 — Claims**
 - `T040` Schema + claim/unclaim endpoints, unique constraint, 409 on race — **done**
-- `T041` Claim tokens in localStorage + undo UI
+- `T041` Claim tokens in localStorage + undo UI — **done**
 - `T042` Token-bucket rate limiting — **done** (applied to login/register; preview and claim adopt it in T032/T040)
 - `T043` `hide_claims_from_owner` server-side stripping
 

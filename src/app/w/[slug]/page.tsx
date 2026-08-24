@@ -56,5 +56,5 @@ export default async function WishlistPage({ params }: Props) {
   const publicWishlist = await findPublicWishlist(slug);
   if (!publicWishlist) notFound();
 
-  return <VisitorView wishlist={publicWishlist} />;
+  return <VisitorView slug={slug} wishlist={publicWishlist} />;
 }
