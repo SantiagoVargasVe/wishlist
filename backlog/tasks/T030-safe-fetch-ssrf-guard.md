@@ -9,9 +9,9 @@ size: M
 
 ## Context
 
-The app fetches user-supplied URLs to scrape Open Graph metadata. It runs on a home server
-sharing a LAN with the router admin UI (`192.168.2.1`), Nextcloud (`:8080`), Immich (`:2283`),
-and Minecraft. Without guards, a pasted `http://192.168.2.1/` is read back through a preview card.
+The app fetches user-supplied URLs to scrape Open Graph metadata, and it's self-hosted — so it
+sits on a LAN with a router admin interface and other private services on RFC1918 addresses.
+Without guards, a pasted private-range URL is read straight back through a preview card.
 
 This is the highest-risk code in the repo. Everything in `src/server/og/` depends on it, so it
 gets built first and tested hard.

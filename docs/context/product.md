@@ -30,7 +30,7 @@ wrong, picks which lists it belongs to, saves.
 The scrape is a convenience, never a gate. Title and image land ~90% of the time; price closer to
 50%. A failed scrape still gives you a working form.
 
-**Sharing.** Owner hits the share CTA on their default list and gets `wish.santiagovargas.co/w/{slug}`.
+**Sharing.** Owner hits the share CTA on their default list and gets `{APP_URL}/w/{slug}`.
 The slug is an unguessable nanoid — possession of the link *is* the permission.
 
 **Marking bought.** Visitor opens the link, clicks *Mark as bought* on an item. It's reserved for

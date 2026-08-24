@@ -21,8 +21,8 @@ imports from `src/server/db/` — rather than by a network hop.
 WhatsApp needs server-rendered OG tags on `/w/[slug]`. A client-only SPA can't do that without a
 prerender hack, and building an app *about* OG cards that has none would be absurd.
 
-One container is also one deploy, one image, one set of logs on a box already running Nextcloud,
-Immich, Minecraft, and a tunnel.
+One container is also one deploy, one image, and one set of logs on a self-hosted box that's
+already running several other stacks.
 
 ## Trade-offs
 

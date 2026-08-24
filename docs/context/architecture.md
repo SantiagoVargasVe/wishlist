@@ -12,9 +12,10 @@ flowchart LR
   APP -.->|"SSRF-guarded<br/>outbound"| WEB(["Retailer<br/>product pages"])
 ```
 
-No inbound ports are opened on the router. `wish.santiagovargas.co` is added as a public hostname
-on the **tunnel that already serves Nextcloud and Immich** — `cloudflared` gets bridged onto the
-`wishlist_default` network, the same trick already used for Immich.
+No inbound ports are opened on the router. The app's hostname is added as a public hostname on an
+existing Cloudflare Tunnel — `cloudflared` gets bridged onto the `wishlist_default` network and
+routes to `http://wishlist-app:3000`. The public origin comes from `APP_URL`; nothing in the repo
+hardcodes a domain.
 
 ## Internal boundary
 
@@ -63,7 +64,7 @@ cron-refresh alternative was rejected.
 ## Deployment
 
 ```
-~/nas/wishlist/
+<deploy-dir>/
   docker-compose.yml
   .env                  # chmod 600, never in git
   data/
@@ -71,26 +72,23 @@ cron-refresh alternative was rejected.
     postgres/
 ```
 
-Matches the layout of the existing `~/nas/{nextcloud,immich,minecraft}` stacks. All services
-`restart: unless-stopped` so they survive the reboots the hardware watchdog triggers.
+All services use `restart: unless-stopped` so the stack comes back on its own after a reboot.
 
-**A dedicated Postgres container.** Immich's Postgres is vectorchord-tuned with its own
-backup/restore story — sharing it would couple two unrelated services and complicate both.
+**A dedicated Postgres container.** Don't reuse a Postgres instance belonging to another
+self-hosted service — those are often extension-tuned with their own backup and upgrade cycles,
+and sharing one couples two unrelated services in ways that complicate both.
 
 ## Operational notes
 
 - **Not backed up — deliberately.** This is a hobby project and its data is reconstructable:
-  items can be re-added from their URLs. The host's restic scope covers Immich and Nextcloud
-  only, and keeping that job narrow is what keeps it reliable. Treat the database as expendable;
-  don't build features that assume durable history.
-- **Host reliability.** The server has an open issue with intermittent silent freezes (SMART
-  `174 Unexpected_Power_Loss`, suspected loose M.2). A 30s hardware watchdog reboots it and
-  `restart: unless-stopped` brings containers back. Fine for this app — but don't share the link
-  widely until the M.2 is reseated. Abrupt power loss can corrupt Postgres, and with no backup
-  that means starting the data over.
-- **Outbound scraping leaves via the residential ISP IP**, not the tunnel (tunnels are inbound
-  only). That's the same IP the Minecraft DDNS points at, so avoid anything that looks like bulk
-  crawling and gets it rate-limited.
+  items can be re-added from their URLs. Treat the database as expendable; don't build features
+  that assume durable history.
+- **Outbound scraping leaves via the host's own IP**, not the tunnel — tunnels carry inbound
+  traffic only. On a self-hosted box that usually means a residential connection, so avoid
+  anything resembling bulk crawling that could get the address rate-limited. This is one of the
+  reasons scheduled re-scraping was rejected in [ADR-0004](../adr/0004-store-images.md).
+- **Uptime is best-effort.** Self-hosted hardware fails; `restart: unless-stopped` plus a host
+  watchdog covers reboots, but with no backups a corrupted database means starting the data over.
 
 ## Dependency policy
 

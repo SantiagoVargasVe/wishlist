@@ -4,7 +4,7 @@
 
 ## Context
 
-The site sits on a public URL (`wish.santiagovargas.co`). Open registration forms on public URLs
+The site sits on a publicly reachable URL. Open registration forms on public URLs
 attract bot signups, which means email verification, captcha, and cleanup work — none of which
 serves a tool whose users are family members.
 

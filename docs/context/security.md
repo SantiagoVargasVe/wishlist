@@ -5,17 +5,15 @@ writes.**
 
 ## SSRF — the highest-risk surface in this app
 
-This app fetches user-supplied URLs. It runs on a home server that shares a LAN with:
+This app fetches user-supplied URLs, and it is designed to be self-hosted — which means it
+typically runs on a LAN alongside a router admin interface, other self-hosted services, and
+their management ports, none of which are reachable from the internet.
 
-| Host | What's there |
-|---|---|
-| `192.168.2.1` | TP-Link router admin UI |
-| `192.168.2.11:8080` | Nextcloud |
-| `192.168.2.11:2283` | Immich |
-| `192.168.2.11:25565` | Minecraft (RCON on the container network) |
+Without guards, a visitor pastes a private-range URL and reads an internal admin page back
+through an item preview card. Docker's internal networks are reachable the same way.
 
-Without guards, a visitor pastes `http://192.168.2.1/` and reads the router's admin page through
-an item preview card. Docker's internal networks are reachable too.
+Assume the deployment host can reach sensitive things on RFC1918 addresses. The guard below is
+what stands between a pasted URL and all of them.
 
 ### Every outbound fetch goes through `src/server/net/safe-fetch.ts`
 
@@ -27,7 +25,7 @@ The guard must:
 2. **Resolve DNS first, then check every resolved address** against the denylist below.
 3. **Pin the connection to the validated IP.** Resolve, validate, then connect to *that address*
    with the original `Host` header. Validating a hostname and then handing the URL to `fetch()`
-   re-resolves it — a DNS-rebinding TOCTOU where the second lookup returns `192.168.2.1`.
+   re-resolves it — a DNS-rebinding TOCTOU where the second lookup returns a private address.
 4. **Re-validate on every redirect.** Max 3 hops. A public URL that 302s to `169.254.169.254` is
    the oldest trick there is.
 5. **Cap and timeout.** 5s connect/read, 2MB for HTML, 10MB for images.
@@ -50,8 +48,8 @@ guard should survive the app being moved.
 
 - `POST /api/preview` is **authenticated**. Only logged-in users add items, so the surface is
   never anonymous. Cheapest mitigation available — don't regress it.
-- Consider running the fetcher on an isolated Docker network with no route to `192.168.2.0/24`,
-  so a guard bug still can't reach the LAN.
+- Consider running the fetcher on an isolated Docker network with no route to the host's LAN
+  subnet, so a guard bug still can't reach it.
 - Never return raw fetch errors to the client. `ECONNREFUSED` vs timeout tells an attacker
   which internal ports are open. Return a generic failure.
 
@@ -84,7 +82,7 @@ and a per-slug cap matter more than raw request throttling.
 ## Secrets
 
 - `.env` is gitignored. `.env.example` carries names and dummy values only.
-- On the server: `~/nas/wishlist/.env`, `chmod 600`, matching the other stacks.
+- On a server: keep `.env` beside `docker-compose.yml`, `chmod 600`.
 - Never log secrets, tokens, or password hashes. Never put `claim_token` in a URL — it lands in
   logs and `Referer` headers. Request body only.
 - If a secret is ever committed, rotate it. Removing the commit is not enough.
@@ -114,6 +112,5 @@ and a per-slug cap matter more than raw request throttling.
 | Risk | Why it's accepted |
 |---|---|
 | Slug leak = full list access | Capability URLs are the design. Slugs are unguessable; rotation can be added if needed. |
-| Scraping the residential IP | Low volume, on-demand only, cached. No scheduled crawling — that's part of why the cron-refresh design was rejected. |
-| Host instability | Pre-existing hardware issue, mitigated by watchdog + `restart: unless-stopped`. Don't share links widely until the M.2 is reseated. |
+| Scraping from the host's own IP | Low volume, on-demand only, cached. No scheduled crawling — that's part of why the cron-refresh design was rejected. |
 | No backups | Deliberate — hobby project, data is reconstructable. A corrupted database means re-adding items, not losing anything irreplaceable. |

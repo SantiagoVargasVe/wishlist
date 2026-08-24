@@ -32,9 +32,9 @@ The third is the subtle one: when a cron fetches the image server-side it doesn'
 `Referer`, so the check passes and the URL looks healthy — while real users see a broken card.
 The monitor is structurally blind to the failure it exists to catch.
 
-There's also a cost specific to this deployment. Daily re-scrapes mean unattended outbound
-requests to bot-hostile retailers, on a schedule, from a **residential ISP IP** — the same IP the
-Minecraft DDNS points at. Getting it rate-limited is a real risk for a partial benefit.
+There's also a cost specific to self-hosting. Daily re-scrapes mean unattended outbound requests
+to bot-hostile retailers, on a schedule, from a **single residential IP address** that other
+services may share. Getting it rate-limited or blocklisted is a real risk for a partial benefit.
 
 And the complexity runs the wrong way: hotlink + cron + re-scrape + repair is *more* code than
 downloading a file once.

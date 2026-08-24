@@ -4,7 +4,7 @@ Self-hosted wishlist app. Paste a product link, get a card built from its Open G
 organize items into lists, and share a list so friends and family can quietly mark things
 as bought without spoiling the surprise.
 
-Runs on the home server at `wish.santiagovargas.co`.
+Built to be self-hosted with Docker behind a Cloudflare Tunnel — no inbound ports required.
 
 ## Why this exists
 

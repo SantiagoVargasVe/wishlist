@@ -42,7 +42,7 @@ src/server/       domain + data    → docs/backend/
 These come from decisions already made. Changing one means writing an ADR first.
 
 1. **Never fetch a user-supplied URL without the SSRF guard** in `src/server/net/safe-fetch.ts`.
-   This box shares a LAN with the router admin UI, Nextcloud, Immich, and Minecraft RCON.
+   This is self-hosted software sharing a LAN with private admin interfaces.
    See [docs/context/security.md](docs/context/security.md).
 2. **The OG scrape may never block a save.** Title/image/price are prefill suggestions. Every
    field stays editable and the item saves with or without them.
