@@ -6,6 +6,16 @@ import { createTestDb, hasTestDatabase, type TestDb } from "../db/test-support";
 import { DomainError } from "../errors";
 import { createItem, deleteItem, updateItem } from "./items";
 
+/**
+ * Passed explicitly to every call that sets a price, rather than relying on
+ * whatever FX_COP_PER_USD happens to be in the environment. The service reads
+ * config lazily only when this is omitted (see items.ts), so tests that
+ * supply it never touch config at all — deterministic regardless of .env,
+ * and no full valid environment required, which is what broke CI here the
+ * first time.
+ */
+const TEST_FX_RATE = 4100;
+
 /** Run and return the DomainError code, or undefined if it succeeded. */
 async function errorCode(promise: Promise<unknown>): Promise<string | undefined> {
   try {
@@ -148,11 +158,11 @@ describe.skipIf(!hasTestDatabase)("item CRUD", () => {
           wishlistIds: [listA],
         },
         ctx.db,
+        TEST_FX_RATE,
       );
 
       expect(item.priceAmount).toBe("410000.00");
       expect(item.priceCurrency).toBe("COP");
-      // Default test rate is FX_COP_PER_USD=4100 (see .env.example / test env).
       expect(item.priceUsdSnapshot).toBe("100.00");
     });
 
@@ -167,6 +177,7 @@ describe.skipIf(!hasTestDatabase)("item CRUD", () => {
           wishlistIds: [listA],
         },
         ctx.db,
+        TEST_FX_RATE,
       );
 
       expect(item.priceUsdSnapshot).toBe("49.99");
@@ -267,6 +278,7 @@ describe.skipIf(!hasTestDatabase)("item CRUD", () => {
         ownerId,
         { priceAmount: "205000", priceCurrency: "COP" },
         ctx.db,
+        TEST_FX_RATE,
       );
       expect(updated.priceUsdSnapshot).toBe("50.00");
     });
