@@ -114,4 +114,8 @@ export const ItemErrors = {
     new ValidationError("One or more lists don't exist or aren't yours", {
       invalidWishlistIds: ids,
     }),
+  alreadyInWishlist: () =>
+    new ConflictError("ITEM_ALREADY_IN_WISHLIST", "This item is already in that list"),
+  notInWishlist: () =>
+    new NotFoundError("ITEM_NOT_IN_WISHLIST", "This item isn't in that list"),
 };

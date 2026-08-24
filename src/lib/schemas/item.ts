@@ -12,7 +12,7 @@ const priceAmountSchema = z
   .regex(/^\d{1,12}(\.\d{1,2})?$/, "Enter a valid amount")
   .refine((v) => Number(v) > 0, "Amount must be greater than zero");
 
-/** Matches the DB's currency CHECK constraint — the only codes the FX snapshot normalises. */
+/** Matches the DB's currency CHECK constraint. */
 const priceCurrencySchema = z.enum(["COP", "USD"]);
 
 /** Price and currency travel together — same rule the DB enforces as a backstop. */
@@ -58,3 +58,9 @@ export const updateItemSchema = z
   });
 
 export type UpdateItemInput = z.infer<typeof updateItemSchema>;
+
+export const addToWishlistSchema = z.object({
+  wishlistId: z.uuid(),
+});
+
+export type AddToWishlistInput = z.infer<typeof addToWishlistSchema>;
