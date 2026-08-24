@@ -21,26 +21,26 @@ export const inviteCodeInput = z
   .pipe(
     z
       .string()
-      .length(INVITE_CODE_LENGTH, "Invite codes are 10 characters"),
+      .length(INVITE_CODE_LENGTH, "Los códigos de invitación tienen 10 caracteres"),
   );
 
 export const registerSchema = z.object({
-  email: z.email("Enter a valid email address").max(254),
+  email: z.email("Ingresa un correo electrónico válido").max(254),
   // Minimum for strength; maximum because Argon2 is deliberately expensive and
   // an unbounded password is a cheap denial-of-service.
   password: z
     .string()
-    .min(10, "Use at least 10 characters")
-    .max(128, "Use at most 128 characters"),
-  displayName: z.string().trim().min(1, "Enter a name").max(80),
+    .min(10, "Usa al menos 10 caracteres")
+    .max(128, "Usa como máximo 128 caracteres"),
+  displayName: z.string().trim().min(1, "Ingresa un nombre").max(80),
   inviteCode: inviteCodeInput,
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 
 export const loginSchema = z.object({
-  email: z.email().max(254),
-  password: z.string().min(1).max(128),
+  email: z.email("Ingresa un correo electrónico válido").max(254),
+  password: z.string().min(1, "Ingresa tu contraseña").max(128),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
