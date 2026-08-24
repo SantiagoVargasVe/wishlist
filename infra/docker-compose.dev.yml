@@ -1,0 +1,22 @@
+# Local development: Postgres only. The Next app runs on the host via `npm run dev`.
+#
+#   docker compose -f infra/docker-compose.dev.yml up -d
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: wishlist-db-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-wishlist}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wishlist}
+      POSTGRES_DB: ${POSTGRES_DB:-wishlist}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-wishlist}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

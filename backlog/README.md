@@ -1,0 +1,103 @@
+# Backlog
+
+One markdown file per task in [tasks/](tasks/). Each is written to be picked up **cold** — by a
+person or an agent — without reading this conversation or any other task.
+
+## Task format
+
+Frontmatter plus four sections. See [_template.md](_template.md).
+
+```yaml
+---
+id: T023
+title: Item CRUD endpoints with soft delete
+epic: E3-core-domain
+status: todo          # todo | in-progress | blocked | done
+depends_on: [T020]
+size: M               # S (<2h) | M (half day) | L (multi-day)
+---
+```
+
+Body: **Context** (why, and what to read) · **Acceptance criteria** (checkable) ·
+**Out of scope** (what not to touch) · **Files likely touched**.
+
+A task is well-written if you can paste it into a fresh agent session with no other context and
+get something reviewable back. If it needs "as we discussed," it's not done being written.
+
+## Lifecycle
+
+1. Pick a `todo` task whose `depends_on` are all `done`
+2. Set `status: in-progress`
+3. Build it. Read only the docs the task's Context names.
+4. Set `status: done` **in the same commit as the code**, so status never drifts from reality
+5. Reference the id in the commit: `feat(items): add soft delete [T023]`
+
+If you discover work outside the task's scope, write a new task file rather than widening the
+current one. Scope creep inside a task is how tasks stop being self-contained.
+
+## Epics
+
+| Epic | What | Tasks |
+|---|---|---|
+| **E1** foundation | Next.js app, Docker, Drizzle wiring | T001–T003 |
+| **E2** auth | Invite codes, register/login, JWT cookie, auth pages | T010–T014 |
+| **E3** core-domain | Wishlist + item schema, CRUD, aggregate read | T020–T025 |
+| **E4** og | SSRF-safe fetch, parser, preview endpoint, image pipeline | T030–T034 |
+| **E5** claims | Claim schema, endpoints, tokens, rate limits, owner filtering | T040–T043 |
+| **E6** frontend | Shell, list page, modals, filters, share CTA, OG metadata | T050–T058 |
+| **E7** deploy | Tunnel hostname, prod compose, restic, WAF rules | T060–T063 |
+
+## Task index
+
+**E1 — Foundation**
+- `T001` Initialize Next.js 15 + TypeScript + Tailwind — **written**
+- `T002` Local Postgres via docker compose + `.env` wiring
+- `T003` Drizzle setup, config, first migration run
+
+**E2 — Auth**
+- `T010` Schema: `users`, `invite_codes` + `seed:invite` script
+- `T011` `POST /api/auth/register` with invite consumption + default list (transactional)
+- `T012` Login / logout, JWT signing, httpOnly cookie
+- `T013` Session helper + ownership guards in services
+- `T014` `/login` and `/register` pages
+
+**E3 — Core domain**
+- `T020` Schema: `wishlists`, `items`, `wishlist_items` — **written**
+- `T021` Default wishlist on registration + partial unique index
+- `T022` Wishlist CRUD (default-list delete protection)
+- `T023` Item CRUD with soft delete
+- `T024` Add/remove item to/from list, last-list removal rule
+- `T025` `GET /api/me` aggregate endpoint
+
+**E4 — OG enrichment**
+- `T030` `safe-fetch` SSRF guard + exhaustive tests — **written**
+- `T031` OG / Twitter / JSON-LD parser with precedence + sanitization
+- `T032` `POST /api/preview` + `og_cache`
+- `T033` Image download → sharp → `data/images/` + `/media/:filename` — **written**
+- `T034` Weekly orphan image sweep
+
+**E5 — Claims**
+- `T040` Schema + claim/unclaim endpoints, unique constraint, 409 on race — **written**
+- `T041` Claim tokens in localStorage + undo UI
+- `T042` Token-bucket rate limiting
+- `T043` `hide_claims_from_owner` server-side stripping
+
+**E6 — Frontend**
+- `T050` App shell, layout, i18n scaffolding (Spanish-first)
+- `T051` `/w/[slug]` owner view
+- `T052` `/w/[slug]` visitor view
+- `T053` Add-item modal with live OG preview
+- `T054` Edit + delete item flows (remove-vs-delete distinction)
+- `T055` Create / rename / delete wishlist
+- `T056` Price + wishlist filters
+- `T057` Share CTA
+- `T058` `generateMetadata()` OG tags on the share page
+
+**E7 — Deploy**
+- `T060` Add `wish.santiagovargas.co` to the existing tunnel
+- `T061` Production compose at `~/nas/wishlist/`
+- `T062` Add to restic backup scope (pg_dump + images)
+- `T063` Cloudflare WAF rate-limit rules
+
+Five tasks are fully written as worked examples — the highest-risk and most-referenced ones.
+The rest are one-liners here; expand them into files as you pick them up, following the pattern.

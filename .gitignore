@@ -1,0 +1,23 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# secrets — never commit
+.env
+.env.local
+.env.production
+*.pem
+
+# runtime data (images, postgres volume)
+data/
+infra/data/
+
+# misc
+.DS_Store
+*.log
+npm-debug.log*
+coverage/
+.vscode/
+.idea/
