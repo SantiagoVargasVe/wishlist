@@ -1,6 +1,14 @@
 # Local development: Postgres only. The Next app runs on the host via `npm run dev`.
 #
-#   docker compose -f infra/docker-compose.dev.yml up -d
+# Use the npm scripts rather than calling compose directly:
+#
+#   npm run db:up      npm run db:down      npm run db:logs
+#
+# They pass `--project-directory .` so that `.env` and the volume path resolve
+# from the repo root. Without it, compose takes its project directory from this
+# file's location and would quietly read `infra/.env` and write `infra/data/`.
+
+name: wishlist-dev
 
 services:
   db:
@@ -12,11 +20,12 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wishlist}
       POSTGRES_DB: ${POSTGRES_DB:-wishlist}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-wishlist}"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-wishlist} -d ${POSTGRES_DB:-wishlist}"]
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 10s

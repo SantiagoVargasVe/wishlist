@@ -20,6 +20,22 @@ const config = [
 
   ...compat.extends("next/core-web-vitals", "next/typescript"),
 
+  // Underscore marks a deliberately unused binding. `ignoreRestSiblings` covers
+  // the omit-by-destructuring idiom: `const { secret: _drop, ...rest } = obj`.
+  {
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          ignoreRestSiblings: true,
+        },
+      ],
+    },
+  },
+
   // Architectural boundary (ADR-0001): the UI layer never reaches into the
   // database. Route Handlers call services; services own Drizzle.
   {

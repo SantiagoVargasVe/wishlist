@@ -77,8 +77,15 @@ npm test
 Local Postgres:
 
 ```bash
-docker compose -f infra/docker-compose.dev.yml up -d
+npm run db:up      # start (waits for healthy) · db:down · db:logs
 ```
+
+Use the scripts, not raw `docker compose`. They pass `--project-directory .` so `.env` and the
+volume path resolve from the repo root — without it compose reads `infra/.env` and writes
+`infra/data/`, silently.
+
+**Never read `process.env` directly.** Import `config` from `src/server/config.ts`, which
+validates everything once at boot and fails with a message naming what's wrong.
 
 ## Working from the backlog
 
