@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { t } from "@/lib/i18n";
 
+import { Toaster } from "../_ui/toast";
 import { ThemeToggle } from "../_ui/theme-toggle";
 
 /**
@@ -22,6 +23,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <main className="flex-1">{children}</main>
+      <Toaster />
     </div>
   );
 }

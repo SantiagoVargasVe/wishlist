@@ -3,7 +3,7 @@ import type { PublicVisitorWishlist } from "@/server/services/public-wishlist";
 
 import { VisitorItemGrid } from "./visitor-item-grid";
 
-export function VisitorView({ wishlist }: { wishlist: PublicVisitorWishlist }) {
+export function VisitorView({ slug, wishlist }: { slug: string; wishlist: PublicVisitorWishlist }) {
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="text-2xl font-semibold">{wishlist.title}</h1>
@@ -11,7 +11,7 @@ export function VisitorView({ wishlist }: { wishlist: PublicVisitorWishlist }) {
         {t("wishlist.byOwner", { name: wishlist.ownerDisplayName })}
       </p>
       <div className="mt-6">
-        <VisitorItemGrid items={wishlist.items} />
+        <VisitorItemGrid slug={slug} initialWishlist={wishlist} />
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ export const es = {
   common: {
     appName: "Wishlist",
     tagline: "Guarda lo que quieres y compártelo con quien quieras.",
+    dismiss: "Cerrar",
   },
   theme: {
     light: "claro",
@@ -47,5 +48,14 @@ export const es = {
     empty: "Todavía no hay artículos en esta lista.",
     byOwner: "Lista de {name}",
     claimed: "Reservado",
+    markBought: "Marcar como comprado",
+    undo: "Deshacer",
+    claimErrors: {
+      alreadyClaimed: "Alguien más ya reservó este artículo",
+      generic: "No se pudo reservar. Intenta de nuevo.",
+    },
+    undoErrors: {
+      generic: "No se pudo deshacer la reserva. Intenta de nuevo.",
+    },
   },
 } as const;
