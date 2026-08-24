@@ -44,16 +44,19 @@ everyone else who opens the link. A token in their localStorage lets them undo i
   bought everywhere it appears.
 - Every user gets a default list called **Wishlist** on registration. It can be renamed but not
   deleted — the share CTA depends on it existing.
-- Prices are stored in **COP or USD** with a normalized USD snapshot so filtering across mixed
-  currencies works. Display always uses the original currency.
+- Prices are stored in **COP or USD**, exactly as entered — no conversion. There is deliberately
+  **no cross-currency price filter**: converting at a single point in time would make items
+  compare against whatever rate happened to be current when each was saved, which isn't
+  meaningfully comparable and would be confusing to build a filter UI around
+  ([ADR-0009](../adr/0009-no-currency-conversion.md)).
 - Registration requires an **invite code**. The site is on a public URL and this is a family tool.
 - UI is **Spanish-first**. The primary users are family members.
 
 ## Out of scope for v1
 
 Quantity per item · item priority/ranking · comments or notes from visitors · price-drop tracking ·
-email notifications · copying another user's item into your own list · public list discovery ·
-mobile apps
+cross-currency price filtering · email notifications · copying another user's item into your own
+list · public list discovery · mobile apps
 
 Email is *technically* available — the home server has working Gmail SMTP — but password reset is
 deliberately deferred.

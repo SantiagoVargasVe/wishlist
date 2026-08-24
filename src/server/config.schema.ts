@@ -39,10 +39,6 @@ export const configSchema = z.object({
   IMAGE_MAX_WIDTH: z.coerce.number().int().positive().default(800),
   IMAGE_WEBP_QUALITY: z.coerce.number().int().min(1).max(100).default(80),
 
-  // Snapshot rate for cross-currency filtering only — never displayed.
-  // See docs/context/data-model.md § Money.
-  FX_COP_PER_USD: z.coerce.number().positive().default(4100),
-
   OG_FETCH_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
   OG_MAX_HTML_BYTES: z.coerce.number().int().positive().default(2_097_152),
   OG_MAX_IMAGE_BYTES: z.coerce.number().int().positive().default(10_485_760),

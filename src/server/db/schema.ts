@@ -159,16 +159,16 @@ export const items = pgTable(
     sourceImageUrl: text("source_image_url"),
     siteName: text("site_name"),
 
-    /** Money is numeric, never float. See docs/context/data-model.md § Money. */
+    /**
+     * Money is numeric, never float, and stored exactly as the owner entered
+     * it — no derived conversion. See docs/context/data-model.md § Money and
+     * ADR-0009 for why there's no USD snapshot: converting at write time
+     * bakes in whatever rate was current *then*, so two items saved months
+     * apart compare against different rates and were never comparable to
+     * begin with. There's no cross-currency filter to serve that math anyway.
+     */
     priceAmount: numeric("price_amount", { precision: 14, scale: 2 }),
     priceCurrency: char("price_currency", { length: 3 }),
-    /**
-     * Normalised value for cross-currency filtering only — "under 100" says
-     * nothing across COP and USD. Never displayed; the UI always shows the
-     * original amount and currency.
-     */
-    priceUsdSnapshot: numeric("price_usd_snapshot", { precision: 14, scale: 2 }),
-    fxRateUsed: numeric("fx_rate_used", { precision: 14, scale: 6 }),
 
     /** `failed` is a normal outcome — roughly half of retailers block scraping. */
     ogStatus: text("og_status").notNull().default("pending"),

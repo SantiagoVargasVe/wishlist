@@ -9,7 +9,7 @@ Frontmatter plus four sections. See [_template.md](_template.md).
 
 ```yaml
 ---
-id: T023
+id: T0NN
 title: Item CRUD endpoints with soft delete
 epic: E3-core-domain
 status: todo          # todo | in-progress | blocked | done
@@ -85,7 +85,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 - `T020` Schema: `wishlists`, `items`, `wishlist_items` — **done**
 - `T021` Default wishlist on registration + partial unique index (extends T011's transaction) — **done**
 - `T022` Wishlist CRUD (default-list protection, orphan-item confirmation) — **done**
-- `T023` Item CRUD with soft delete
+- `T023` Item CRUD with soft delete — **done**
 - `T024` Add/remove item to/from list, last-list removal rule
 - `T025` `GET /api/me` aggregate endpoint
 
@@ -109,7 +109,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 - `T053` Add-item modal with live OG preview
 - `T054` Edit + delete item flows (remove-vs-delete distinction)
 - `T055` Create / rename / delete wishlist
-- `T056` Price + wishlist filters
+- `T056` Wishlist filter (which list to show — no price filter, see ADR-0009)
 - `T057` Share CTA
 - `T058` `generateMetadata()` OG tags on the share page
 

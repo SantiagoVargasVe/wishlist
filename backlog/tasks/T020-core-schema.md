@@ -7,6 +7,12 @@ depends_on: [T003, T010]
 size: M
 ---
 
+> **Correction (2026-08-24):** as originally built, `items` included `price_usd_snapshot` and
+> `fx_rate_used` columns for cross-currency filtering. Both were removed in a later migration —
+> see [ADR-0009](../../docs/adr/0009-no-currency-conversion.md). The acceptance criteria below are
+> left as written for the historical record; the current schema no longer matches them on this
+> point.
+
 ## Context
 
 The core domain tables. Most other tasks depend on this, so the invariants matter more than the

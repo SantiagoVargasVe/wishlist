@@ -100,3 +100,18 @@ export const WishlistErrors = {
  */
 export const invalidCredentials = () =>
   new DomainError("INVALID_CREDENTIALS", "Email or password is incorrect", 401);
+
+/** Item-specific failures. */
+export const ItemErrors = {
+  notFound: () => new NotFoundError("ITEM_NOT_FOUND", "Item not found"),
+  /**
+   * Filing an item into a list the caller doesn't own — or one that doesn't
+   * exist — isn't representable. A 400 rather than 403/404: this validates
+   * the whole request body before anything is created, the same way a
+   * malformed field would.
+   */
+  invalidWishlists: (ids: string[]) =>
+    new ValidationError("One or more lists don't exist or aren't yours", {
+      invalidWishlistIds: ids,
+    }),
+};

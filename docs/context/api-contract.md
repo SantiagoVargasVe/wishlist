@@ -80,9 +80,18 @@ belongs to this list *and* another is never touched — only its membership here
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| POST | `/api/items` | A | `{ url, title, price?, currency?, notes?, wishlistIds[] }`. Image download + `sharp` runs async; row is created immediately. |
-| PATCH | `/api/items/:id` | O | Changing `url` re-triggers the OG fetch. Other fields don't. |
-| DELETE | `/api/items/:id` | O | Soft delete |
+| POST | `/api/items` | A | `{ url, title, notes?, priceAmount?, priceCurrency?, wishlistIds[] }` → `201 { item }`. Every id in `wishlistIds` must be a list the caller owns, or `400 VALIDATION_FAILED` naming the bad ones and creating nothing. |
+| PATCH | `/api/items/:id` | O | Any subset of `url, title, notes, priceAmount+priceCurrency` → `{ item }`. `404` for missing **or soft-deleted**. |
+| DELETE | `/api/items/:id` | O | Soft delete. Removes **every** `wishlist_items` row for the item, not just one — see § *Deletion semantics* in [data-model.md](data-model.md). |
+
+`priceAmount`/`priceCurrency` travel together — both or neither, on create and on update. Stored
+and returned exactly as sent; there's no server-side conversion or derived value
+([ADR-0009](../adr/0009-no-currency-conversion.md)).
+
+Changing `url` on `PATCH` resets `ogStatus` to `pending` and clears `ogFetchedAt` — a hook for the
+OG scraper (T030–T034), not a live trigger. **That scraper doesn't exist yet.** Until it does,
+`imagePath`, `sourceImageUrl`, `siteName`, and price are exactly what the caller sent; nothing
+auto-fills from the URL.
 | POST | `/api/items/:id/wishlists` | O | `{ wishlistId }` |
 | DELETE | `/api/items/:id/wishlists/:wishlistId` | O | Removing from the **last** list also soft-deletes the item |
 
