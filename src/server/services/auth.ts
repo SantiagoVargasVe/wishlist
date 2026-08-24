@@ -9,6 +9,7 @@ import type { Db } from "../db/types";
 import { PG_UNIQUE_VIOLATION, isPgError } from "../db/pg-errors";
 import { InviteErrors, emailTaken, invalidCredentials } from "../errors";
 import type { LoginInput, RegisterInput } from "@/lib/schemas/auth";
+import { createDefaultWishlist, type PublicWishlist } from "./wishlists";
 
 /** What callers may see. Never includes the password hash. */
 export type PublicUser = {
@@ -17,8 +18,16 @@ export type PublicUser = {
   displayName: string;
 };
 
+export type RegisterResult = {
+  user: PublicUser;
+  wishlist: PublicWishlist;
+};
+
 /**
- * Create an account, consuming a single-use invite code.
+ * Create an account: consume a single-use invite code, create the user, and
+ * create their default wishlist. All three or none — a user with no default
+ * list is a broken state, since the share CTA depends on it existing and
+ * nothing else ever creates one.
  */
 /**
  * The `db` default is evaluated per call, so production callers omit it and
@@ -33,7 +42,7 @@ export type PublicUser = {
 export async function registerUser(
   input: RegisterInput,
   db: Db = getDb(),
-): Promise<PublicUser> {
+): Promise<RegisterResult> {
   // Pre-flight read. Advisory only — it can race, and the conditional UPDATE
   // below is what actually decides. Its value is a precise error message for
   // the common cases (wrong code, already spent, expired) instead of a generic
@@ -78,6 +87,11 @@ export async function registerUser(
       throw error;
     }
 
+    // Same transaction as the user insert: a user must never exist without a
+    // default list, or vice versa. If anything below this point throws, the
+    // wishlist rolls back along with the user and the invite stays unspent.
+    const wishlist = await createDefaultWishlist(user.id, tx);
+
     // The authoritative gate. A conditional UPDATE is atomic; a read-then-write
     // has a window where two people racing the same code both succeed, which
     // would mint two accounts from one invite.
@@ -101,7 +115,7 @@ export async function registerUser(
     // failure anywhere in here leaves the code unspent.
     if (claimed.length === 0) throw InviteErrors.alreadyUsed();
 
-    return user;
+    return { user, wishlist };
   });
 }
 

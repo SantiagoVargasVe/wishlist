@@ -26,8 +26,8 @@ Auth column below: **—** public · **A** authenticated · **O** owner only
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| POST | `/api/auth/register` | — | `{ email, password, displayName, inviteCode }`. Creates the default wishlist in the same transaction. Sets cookie. |
-| POST | `/api/auth/login` | — | `{ email, password }` → sets cookie. Rate limited. |
+| POST | `/api/auth/register` | — | `{ email, password, displayName, inviteCode }` → `{ user, wishlist }`. Creates the default wishlist in the same transaction — a user is never created without one. Sets cookie (register logs you in; no separate login step needed). Rate limited. |
+| POST | `/api/auth/login` | — | `{ email, password }` → `{ user }`, sets cookie. Rate limited. |
 | POST | `/api/auth/logout` | A | Clears cookie |
 | GET | `/api/auth/me` | A | Current user, or 401 |
 
