@@ -101,6 +101,14 @@ export const WishlistErrors = {
 export const invalidCredentials = () =>
   new DomainError("INVALID_CREDENTIALS", "Email or password is incorrect", 401);
 
+/** Claim-specific failures. */
+export const ClaimErrors = {
+  alreadyClaimed: () =>
+    new ConflictError("ITEM_ALREADY_CLAIMED", "This item has already been claimed"),
+  notClaimed: () => new NotFoundError("CLAIM_NOT_FOUND", "This item hasn't been claimed"),
+  tokenMismatch: () => new ForbiddenError("That claim token doesn't match"),
+};
+
 /** Item-specific failures. */
 export const ItemErrors = {
   notFound: () => new NotFoundError("ITEM_NOT_FOUND", "Item not found"),

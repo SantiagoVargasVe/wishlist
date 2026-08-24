@@ -21,9 +21,6 @@ import {
  *
  * Invariants belong in the database, not in application code. See
  * docs/context/data-model.md before adding anything here.
- *
- * Still to come:
- *   T040  item_claims
  */
 
 /**
@@ -234,6 +231,31 @@ export const wishlistItems = pgTable(
   ],
 );
 
+/**
+ * One active claim per item, anywhere it appears. Claims attach to the item
+ * itself, not to a `wishlist_items` row — a physical gift, bought once, shows
+ * as bought on every list it's filed under.
+ *
+ * `claimedByUserId` is set for a logged-in claimer and null for an anonymous
+ * one, but neither is ever exposed in a response — visitors see "reserved",
+ * never who (ADR-0005). `claimToken` is what lets an anonymous claimer undo
+ * their own claim without an account.
+ */
+export const itemClaims = pgTable("item_claims", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  itemId: uuid("item_id")
+    .notNull()
+    .unique()
+    .references(() => items.id, { onDelete: "cascade" }),
+  claimedByUserId: uuid("claimed_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  claimToken: text("claim_token").notNull(),
+  claimedAt: timestamp("claimed_at", { withTimezone: true })
+    .notNull()
+    .default(sql`now()`),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type InviteCode = typeof inviteCodes.$inferSelect;
@@ -244,3 +266,5 @@ export type NewWishlist = typeof wishlists.$inferInsert;
 export type Item = typeof items.$inferSelect;
 export type NewItem = typeof items.$inferInsert;
 export type WishlistItem = typeof wishlistItems.$inferSelect;
+export type ItemClaim = typeof itemClaims.$inferSelect;
+export type NewItemClaim = typeof itemClaims.$inferInsert;
