@@ -64,13 +64,20 @@ export function errorResponse(error: unknown): Response {
   );
 }
 
-/** Wrap a handler so thrown domain errors become the right response. */
-export function handle(
-  fn: (request: Request) => Promise<Response>,
-): (request: Request) => Promise<Response> {
-  return async (request) => {
+/**
+ * Wrap a handler so thrown domain errors become the right response.
+ *
+ * Generic over trailing arguments so this also wraps dynamic-route handlers,
+ * which Next calls with a second `{ params }` argument
+ * (`Promise<{ id: string }>` in Next 15) — `T022` is the first route that
+ * needs it.
+ */
+export function handle<Args extends unknown[]>(
+  fn: (request: Request, ...args: Args) => Promise<Response>,
+): (request: Request, ...args: Args) => Promise<Response> {
+  return async (request, ...args) => {
     try {
-      return await fn(request);
+      return await fn(request, ...args);
     } catch (error) {
       return errorResponse(error);
     }

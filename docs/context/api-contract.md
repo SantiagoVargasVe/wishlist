@@ -58,9 +58,23 @@ the client just shows an empty form.
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| POST | `/api/wishlists` | A | `{ title }` → generates slug |
-| PATCH | `/api/wishlists/:id` | O | `{ title?, hideClaimsFromOwner? }` |
-| DELETE | `/api/wishlists/:id` | O | `?deleteOrphans=true` also soft-deletes items living only here. `409` on the default list. |
+| POST | `/api/wishlists` | A | `{ title }` → `201 { wishlist }`, `isDefault: false` always — only registration creates a default list |
+| PATCH | `/api/wishlists/:id` | O | `{ title?, hideClaimsFromOwner? }`, at least one required → `{ wishlist }`. The default list may be renamed; only deletion is blocked. |
+| DELETE | `/api/wishlists/:id` | O | See below |
+
+`DELETE` on the **default** list always fails: `409 DEFAULT_WISHLIST_UNDELETABLE`, with or without
+the query flag.
+
+Otherwise, if any item's only membership across the owner's lists is this one, deleting would
+orphan it — the "prompt" behaviour in [data-model.md](data-model.md) § *Deletion semantics*:
+
+- **Without** `?deleteOrphans=true`: `409 CONFIRM_DELETE_ORPHANS`, body carries
+  `details.orphanItems: { id, title }[]`, and **nothing is deleted**. The client shows these to
+  the user and re-requests with the flag once confirmed.
+- **With** `?deleteOrphans=true`: those items are soft-deleted, then the list is deleted → `204`.
+
+A list with no would-be-orphans deletes with a plain `DELETE`, no flag needed. An item that
+belongs to this list *and* another is never touched — only its membership here disappears.
 
 ## Items
 

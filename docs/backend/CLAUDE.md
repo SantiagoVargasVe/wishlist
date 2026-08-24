@@ -28,6 +28,16 @@ Every service that touches a wishlist or item takes the acting `userId` and chec
 **inside the service**. Don't rely on a route handler having checked. The public claim path is
 the sole exception, and it's gated on slug possession instead.
 
+Two shared primitives (`src/server/auth/`), used by every "O" endpoint:
+
+- `requireUserId()` — throws `UnauthorizedError` if there's no session. Route handlers call this
+  first, before touching a service.
+- `assertOwned(resource, userId, notFoundFactory)` — takes a fetched row, throws `NotFoundError`
+  if it's missing and `ForbiddenError` if it exists but belongs to someone else. This is what
+  implements the **404 truly missing / 403 exists but not yours** split in
+  [api-contract.md](../context/api-contract.md) — don't reimplement it per resource, and don't
+  collapse the two into one status; each leaks or hides something the other doesn't.
+
 ## Queries
 
 - Always filter `deleted_at IS NULL` on items. Consider a `liveItems` helper so nobody forgets.

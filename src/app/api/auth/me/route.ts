@@ -1,4 +1,4 @@
-import { currentUserId } from "@/server/auth/session";
+import { requireUserId } from "@/server/auth/session";
 import { UnauthorizedError } from "@/server/errors";
 import { getUserById } from "@/server/services/auth";
 
@@ -11,8 +11,7 @@ import { handle } from "../../_lib/respond";
  * rather than as a 404 — the token is no longer meaningful either way.
  */
 export const GET = handle(async () => {
-  const userId = await currentUserId();
-  if (!userId) throw new UnauthorizedError();
+  const userId = await requireUserId();
 
   const user = await getUserById(userId);
   if (!user) throw new UnauthorizedError();

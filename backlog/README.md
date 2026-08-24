@@ -78,13 +78,13 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 - `T010` Schema: `users`, `invite_codes` + `seed:invite` script — **done**
 - `T011` `POST /api/auth/register` with transactional invite consumption — **done**
 - `T012` Login / logout / me, JWT signing, httpOnly cookie — **done**
-- `T013` Session helper + ownership guards in services
+- `T013` Session helper + ownership guards in services — **done** (folded into T022, its first real consumer)
 - `T014` `/login` and `/register` pages
 
 **E3 — Core domain**
 - `T020` Schema: `wishlists`, `items`, `wishlist_items` — **done**
 - `T021` Default wishlist on registration + partial unique index (extends T011's transaction) — **done**
-- `T022` Wishlist CRUD (default-list delete protection)
+- `T022` Wishlist CRUD (default-list protection, orphan-item confirmation) — **done**
 - `T023` Item CRUD with soft delete
 - `T024` Add/remove item to/from list, last-list removal rule
 - `T025` `GET /api/me` aggregate endpoint
