@@ -1,8 +1,17 @@
+import "dotenv/config";
+
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "url";
 
 const alias = { "@": fileURLToPath(new URL("./src", import.meta.url)) };
+
+// Integration tests need DATABASE_URL_TEST. Passed through explicitly rather
+// than relying on worker env inheritance, which varies by pool type.
+const passthroughEnv = {
+  DATABASE_URL_TEST: process.env.DATABASE_URL_TEST ?? "",
+  CI: process.env.CI ?? "",
+};
 
 export default defineConfig({
   test: {
@@ -15,6 +24,7 @@ export default defineConfig({
           name: "server",
           environment: "node",
           include: ["src/server/**/*.{test,spec}.ts"],
+          env: passthroughEnv,
         },
       },
       {

@@ -56,6 +56,25 @@ export type Config = z.infer<typeof configSchema>;
  * Validate an environment object, throwing with *every* problem listed rather
  * than only the first — fixing config one error per restart is miserable.
  */
+/**
+ * Build a memoized, *lazy* config accessor.
+ *
+ * Laziness matters for one specific reason: `next build` evaluates modules to
+ * do static analysis, so validating at import time would make the production
+ * build demand real runtime secrets just to compile — and every Docker build
+ * would need placeholder values that could mask a genuine misconfiguration.
+ *
+ * Fail-fast isn't lost, it just moves to the right moment: `instrumentation.ts`
+ * calls the accessor once at server startup, so a bad environment still stops
+ * the app at boot rather than on the first request.
+ */
+export function createConfigAccessor(
+  readEnv: () => Record<string, string | undefined>,
+): () => Config {
+  let cached: Config | undefined;
+  return () => (cached ??= parseConfig(readEnv()));
+}
+
 export function parseConfig(env: Record<string, string | undefined>): Config {
   const result = configSchema.safeParse(env);
 

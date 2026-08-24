@@ -68,7 +68,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 **E1 — Foundation**
 - `T001` Initialize Next.js 15 + TypeScript + Tailwind + Vitest — **done**
 - `T002` Local Postgres + validated environment config — **done**
-- `T003` Drizzle setup, config, first migration run
+- `T003` Drizzle wiring, migration pipeline, real-Postgres test harness — **done**
 - `T004` Base UI primitives, dark mode, TanStack Query base client — **written**
 
 **E2 — Auth**

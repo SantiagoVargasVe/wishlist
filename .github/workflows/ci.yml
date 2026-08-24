@@ -19,6 +19,26 @@ jobs:
   quality:
     name: lint · typecheck · test · build
     runs-on: ubuntu-latest
+
+    # Integration tests run against a real Postgres, not a mocked Drizzle. The
+    # invariants that matter most here — the one-default-list partial index, the
+    # unique claim constraint — are enforced by the database, and a mock would
+    # let a double claim through. See docs/context/testing.md.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: wishlist
+          POSTGRES_PASSWORD: wishlist
+          POSTGRES_DB: wishlist_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - uses: actions/checkout@v4
 
@@ -51,10 +71,16 @@ jobs:
         if: steps.detect.outputs.ready == 'true'
         run: npm run typecheck
 
-      - name: Unit tests
+      - name: Tests
         if: steps.detect.outputs.ready == 'true'
         run: npm test -- --coverage
+        env:
+          DATABASE_URL_TEST: postgresql://wishlist:wishlist@localhost:5432/wishlist_test
 
+      # Deliberately no env. Config validation is lazy (see config.schema.ts),
+      # so the build needs no secrets — real or placeholder. If this step ever
+      # starts failing on a missing variable, something began reading config at
+      # import time; fix that rather than adding fake values here.
       - name: Build
         if: steps.detect.outputs.ready == 'true'
         run: npm run build

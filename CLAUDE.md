@@ -66,26 +66,30 @@ These come from decisions already made. Changing one means writing an ADR first.
 
 ```bash
 npm run dev          # Next dev server on :3000
-npm run db:generate  # generate migration from schema changes
-npm run db:migrate   # apply migrations
-npm run db:studio    # Drizzle Studio
 npm run lint
 npm run typecheck
 npm test
+npm run build
+
+npm run db:up        # start Postgres (waits for healthy) · db:down · db:logs
+npm run db:reset     # destroy the volume and re-run initdb
+npm run db:generate  # generate a migration from schema changes
+npm run db:migrate   # apply migrations
+npm run db:studio    # Drizzle Studio
 ```
 
-Local Postgres:
-
-```bash
-npm run db:up      # start (waits for healthy) · db:down · db:logs
-```
-
-Use the scripts, not raw `docker compose`. They pass `--project-directory .` so `.env` and the
-volume path resolve from the repo root — without it compose reads `infra/.env` and writes
-`infra/data/`, silently.
+Use the `db:*` scripts, not raw `docker compose`. They pass `--project-directory .` so `.env`
+resolves from the repo root — without it compose silently reads `infra/.env`.
 
 **Never read `process.env` directly.** Import `config` from `src/server/config.ts`, which
-validates everything once at boot and fails with a message naming what's wrong.
+validates everything once at boot and fails with a message naming what's wrong. Tooling that runs
+outside Next (`drizzle.config.ts`) imports `config.schema.ts` instead, to avoid the `server-only`
+guard.
+
+**Integration tests need a database.** They run against `wishlist_test`, created by
+`infra/postgres-init/` on a fresh volume, and are addressed by `DATABASE_URL_TEST`. They skip
+locally when it's unset so unit tests still run without Docker — but fail in CI if it's missing,
+because a silent skip there is indistinguishable from a pass.
 
 ## Working from the backlog
 
