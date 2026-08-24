@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { parseConfig } from "./config.schema";
+import { createConfigAccessor, parseConfig } from "./config.schema";
 
 /** Minimal KEY=value reader — enough for .env.example, no interpolation. */
 function readEnvFile(relativePath: string): Record<string, string> {
@@ -81,6 +81,37 @@ describe("parseConfig", () => {
     expect(message).toMatch(/DATABASE_URL/);
     expect(message).toMatch(/AUTH_SECRET/);
     expect(message).toMatch(/APP_URL/);
+  });
+});
+
+describe("createConfigAccessor", () => {
+  it("does not read the environment until the accessor is called", () => {
+    // This is what lets `next build` evaluate the module graph without secrets.
+    // If it regresses, the build starts demanding real credentials to compile.
+    let reads = 0;
+    createConfigAccessor(() => {
+      reads += 1;
+      return valid;
+    });
+
+    expect(reads).toBe(0);
+  });
+
+  it("reads and validates once, then memoizes", () => {
+    let reads = 0;
+    const getConfig = createConfigAccessor(() => {
+      reads += 1;
+      return valid;
+    });
+
+    expect(getConfig().DATABASE_URL).toBe(valid.DATABASE_URL);
+    expect(getConfig().APP_URL).toBe(valid.APP_URL);
+    expect(reads).toBe(1);
+  });
+
+  it("still throws on an invalid environment, just later", () => {
+    const getConfig = createConfigAccessor(() => ({ AUTH_SECRET: "short" }));
+    expect(() => getConfig()).toThrow(/DATABASE_URL/);
   });
 });
 

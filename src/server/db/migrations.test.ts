@@ -21,7 +21,16 @@ describe.skipIf(!TEST_DB_URL)("migrations", () => {
 
     // Start from nothing so this asserts migrations work on a fresh database,
     // not that they happen to be idempotent against leftover state.
-    await sql.unsafe("DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;");
+    //
+    // The `drizzle` schema matters as much as `public`: it holds the migration
+    // journal. Dropping only `public` wipes the *effects* of past migrations
+    // while leaving them recorded as applied, so migrate() skips them and the
+    // suite passes once then fails on every rerun.
+    await sql.unsafe(`
+      DROP SCHEMA IF EXISTS public CASCADE;
+      DROP SCHEMA IF EXISTS drizzle CASCADE;
+      CREATE SCHEMA public;
+    `);
   });
 
   afterAll(async () => {

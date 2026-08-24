@@ -77,13 +77,10 @@ jobs:
         env:
           DATABASE_URL_TEST: postgresql://wishlist:wishlist@localhost:5432/wishlist_test
 
-      # Next evaluates modules during the build, and src/server/config.ts parses
-      # the environment eagerly at import. These are throwaway values that only
-      # need to satisfy the schema — nothing connects to a database here.
+      # Deliberately no env. Config validation is lazy (see config.schema.ts),
+      # so the build needs no secrets — real or placeholder. If this step ever
+      # starts failing on a missing variable, something began reading config at
+      # import time; fix that rather than adding fake values here.
       - name: Build
         if: steps.detect.outputs.ready == 'true'
         run: npm run build
-        env:
-          DATABASE_URL: postgresql://build:build@localhost:5432/build
-          AUTH_SECRET: ci-build-placeholder-secret-not-used-at-runtime
-          APP_URL: http://localhost:3000
