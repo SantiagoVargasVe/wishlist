@@ -51,6 +51,14 @@ export default defineConfig({
         test: {
           name: "ui",
           environment: "jsdom",
+          // Root-level `globals: true` is not reliably honoured per-project
+          // (same issue already noted above for `fileParallelism`) — repeated
+          // here because @testing-library/react's own auto-cleanup checks
+          // `typeof afterEach` against the real global at its own import
+          // time, not just inside test files Vitest transforms. Without it,
+          // nothing unmounts between tests and later assertions in the same
+          // file see leftover DOM from earlier ones.
+          globals: true,
           setupFiles: ["./vitest.setup.ts"],
           include: ["src/{app,lib}/**/*.{test,spec}.{ts,tsx}"],
         },
