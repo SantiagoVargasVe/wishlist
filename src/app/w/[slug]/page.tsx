@@ -1,19 +1,23 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { cache } from "react";
 
 import { t } from "@/lib/i18n";
 import { currentUserId } from "@/server/auth/session";
+import { DomainError } from "@/server/errors";
 import { getMyWishlists } from "@/server/services/me";
+import { getPublicWishlist } from "@/server/services/public-wishlist";
 
-import { ItemGrid } from "./item-grid";
+import { OwnerView } from "./owner-view";
+import { VisitorView } from "./visitor-view";
 
 type Props = { params: Promise<{ slug: string }> };
 
 /**
- * `cache()` so `generateMetadata` and the page body share one call — Next
- * doesn't dedupe arbitrary async functions the way it dedupes `fetch()`, and
- * "one query, not one per consumer" is the same bar T025 already holds the
- * data layer to.
+ * `cache()` so `generateMetadata` and the page body share one call each —
+ * Next dedupes `fetch()` automatically but not arbitrary async functions,
+ * and "one query, not one per consumer" is the same bar T025 already holds
+ * the data layer to.
  */
 const findOwnedWishlist = cache(async (slug: string) => {
   const userId = await currentUserId();
@@ -23,34 +27,34 @@ const findOwnedWishlist = cache(async (slug: string) => {
   return wishlists.find((w) => w.slug === slug) ?? null;
 });
 
+/** `null` for a slug that genuinely doesn't exist — anything else propagates. */
+const findPublicWishlist = cache(async (slug: string) => {
+  try {
+    return await getPublicWishlist(slug);
+  } catch (error) {
+    if (error instanceof DomainError && error.code === "WISHLIST_NOT_FOUND") return null;
+    throw error;
+  }
+});
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const wishlist = await findOwnedWishlist(slug);
-  return { title: wishlist?.title ?? t("common.appName") };
+
+  const owned = await findOwnedWishlist(slug);
+  if (owned) return { title: owned.title };
+
+  const publicWishlist = await findPublicWishlist(slug);
+  return { title: publicWishlist?.title ?? t("common.appName") };
 }
 
 export default async function WishlistPage({ params }: Props) {
   const { slug } = await params;
-  const wishlist = await findOwnedWishlist(slug);
 
-  if (!wishlist) {
-    // Not this session's own list. Could be a real visitor link or an
-    // invalid slug — telling those apart needs GET /api/w/:slug, which is
-    // T052's job. This placeholder is deliberately temporary; T052 replaces
-    // this branch outright rather than extending it.
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-12">
-        <p className="text-sm text-muted-foreground">{t("wishlist.visitorViewComingSoon")}</p>
-      </div>
-    );
-  }
+  const owned = await findOwnedWishlist(slug);
+  if (owned) return <OwnerView wishlist={owned} />;
 
-  return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="text-2xl font-semibold">{wishlist.title}</h1>
-      <div className="mt-6">
-        <ItemGrid items={wishlist.items} />
-      </div>
-    </div>
-  );
+  const publicWishlist = await findPublicWishlist(slug);
+  if (!publicWishlist) notFound();
+
+  return <VisitorView wishlist={publicWishlist} />;
 }
