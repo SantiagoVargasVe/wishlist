@@ -37,6 +37,8 @@ writing anything.
 - [ ] Tests for `t()`: nested key resolution, `{var}` interpolation (including the same var
       appearing twice), and an unresolvable key throwing
 - [ ] `/` (the token/button demo page) still renders correctly nested inside the new shell
+- [ ] Favicon (`src/app/icon.svg`) in the `primary`/`primary-foreground` tokens' colors, picked up
+      automatically by Next's file-based metadata convention
 
 ## Out of scope
 
@@ -56,4 +58,5 @@ src/app/_shell/app-shell.tsx
 src/app/layout.tsx
 src/app/_ui/theme-toggle.tsx
 src/app/page.tsx
+src/app/icon.svg
 ```
