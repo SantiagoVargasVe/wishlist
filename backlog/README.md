@@ -37,6 +37,9 @@ get something reviewable back. If it needs "as we discussed," it's not done bein
 
 A task is done when CI is green on the PR, not when it works locally.
 
+Run `npm run test:ci` before opening one — it mirrors CI exactly, **including
+coverage thresholds**, which a plain `npm test` does not check.
+
 ### Branch naming
 
 `<type>/<task-id>-<short-slug>` — `feat/T023-item-soft-delete`, `fix/T040-claim-race`,

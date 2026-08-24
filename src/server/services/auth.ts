@@ -20,21 +20,19 @@ export type PublicUser = {
 /**
  * Create an account, consuming a single-use invite code.
  */
-export async function registerUser(input: RegisterInput): Promise<PublicUser> {
-  return registerUserWithDb(getDb(), input);
-}
-
 /**
- * The testable core.
+ * The `db` default is evaluated per call, so production callers omit it and
+ * tests pass a handle onto the test database. A default parameter rather than a
+ * separate wrapper function: the wrapper existed only to satisfy the boundary
+ * and could never be covered by tests, which is a design smell the coverage
+ * gate correctly flagged.
  *
- * Route handlers call `registerUser`, which resolves the shared handle; tests
- * call this with a handle onto the test database. Keeping the seam here means
- * `src/app` never touches a `Db` at all, which is the boundary ADR-0001 wants
+ * `src/app` never sees a `Db` either way — that is the boundary ADR-0001 wants
  * and ESLint enforces.
  */
-export async function registerUserWithDb(
-  db: Db,
+export async function registerUser(
   input: RegisterInput,
+  db: Db = getDb(),
 ): Promise<PublicUser> {
   // Pre-flight read. Advisory only — it can race, and the conditional UPDATE
   // below is what actually decides. Its value is a precise error message for

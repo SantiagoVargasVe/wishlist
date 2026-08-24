@@ -70,6 +70,7 @@ npm run lint
 npm run typecheck
 npm test
 npm run build
+npm run test:ci      # all four exactly as CI runs them, coverage included
 
 npm run db:up        # start Postgres (waits for healthy) · db:down · db:logs
 npm run db:reset     # destroy the volume and re-run initdb

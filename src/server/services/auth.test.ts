@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { inviteCodes, users } from "../db/schema";
 import { createTestDb, hasTestDatabase, type TestDb } from "../db/test-support";
 import { DomainError } from "../errors";
-import { registerUserWithDb } from "./auth";
+import { registerUser } from "./auth";
 
 const input = {
   email: "alice@example.com",
@@ -41,7 +41,7 @@ describe.skipIf(!hasTestDatabase)("registerUser", () => {
   });
 
   it("creates the user and consumes the code", async () => {
-    const user = await registerUserWithDb(ctx.db, input);
+    const user = await registerUser(input, ctx.db);
 
     expect(user.email).toBe("alice@example.com");
     expect(user.displayName).toBe("Alice");
@@ -56,12 +56,12 @@ describe.skipIf(!hasTestDatabase)("registerUser", () => {
   });
 
   it("never returns the password hash", async () => {
-    const user = await registerUserWithDb(ctx.db, input);
+    const user = await registerUser(input, ctx.db);
     expect(Object.keys(user)).toEqual(["id", "email", "displayName"]);
   });
 
   it("stores a hash, not the password", async () => {
-    await registerUserWithDb(ctx.db, input);
+    await registerUser(input, ctx.db);
     const [row] = await ctx.db.select().from(users);
 
     expect(row.passwordHash).not.toContain(input.password);
@@ -70,16 +70,16 @@ describe.skipIf(!hasTestDatabase)("registerUser", () => {
 
   it("rejects an unknown code", async () => {
     const code = await errorCode(
-      registerUserWithDb(ctx.db, { ...input, inviteCode: "ZZZZZZZZZZ" }),
+      registerUser({ ...input, inviteCode: "ZZZZZZZZZZ" }, ctx.db),
     );
     expect(code).toBe("VALIDATION_FAILED");
   });
 
   it("rejects a code that was already used", async () => {
-    await registerUserWithDb(ctx.db, input);
+    await registerUser(input, ctx.db);
 
     const code = await errorCode(
-      registerUserWithDb(ctx.db, { ...input, email: "bob@example.com" }),
+      registerUser({ ...input, email: "bob@example.com" }, ctx.db),
     );
     expect(code).toBe("INVITE_ALREADY_USED");
   });
@@ -91,7 +91,7 @@ describe.skipIf(!hasTestDatabase)("registerUser", () => {
     });
 
     const code = await errorCode(
-      registerUserWithDb(ctx.db, { ...input, inviteCode: "EXPIREDCDE" }),
+      registerUser({ ...input, inviteCode: "EXPIREDCDE" }, ctx.db),
     );
     expect(code).toBe("VALIDATION_FAILED");
   });
@@ -102,23 +102,23 @@ describe.skipIf(!hasTestDatabase)("registerUser", () => {
       expiresAt: new Date(Date.now() + 60_000),
     });
 
-    const user = await registerUserWithDb(ctx.db, {
+    const user = await registerUser({
       ...input,
       inviteCode: "FUTUREABCD",
-    });
+    }, ctx.db);
     expect(user.id).toBeDefined();
   });
 
   it("rejects a duplicate email, case-insensitively", async () => {
-    await registerUserWithDb(ctx.db, input);
+    await registerUser(input, ctx.db);
     await ctx.db.insert(inviteCodes).values({ code: "SECONDCODE" });
 
     const code = await errorCode(
-      registerUserWithDb(ctx.db, {
+      registerUser({
         ...input,
         email: "ALICE@example.com",
         inviteCode: "SECONDCODE",
-      }),
+      }, ctx.db),
     );
     expect(code).toBe("EMAIL_TAKEN");
   });
@@ -132,7 +132,7 @@ describe.skipIf(!hasTestDatabase)("registerUser", () => {
       displayName: "Existing",
     });
 
-    await errorCode(registerUserWithDb(ctx.db, { ...input, email: "taken@example.com" }));
+    await errorCode(registerUser({ ...input, email: "taken@example.com" }, ctx.db));
 
     const [code] = await ctx.db
       .select()
@@ -145,10 +145,10 @@ describe.skipIf(!hasTestDatabase)("registerUser", () => {
 
   it("creates no orphan user when the code is lost mid-registration", async () => {
     // The transaction has to roll back the user, not just skip the code.
-    await registerUserWithDb(ctx.db, input);
+    await registerUser(input, ctx.db);
     const before = await ctx.db.select().from(users);
 
-    await errorCode(registerUserWithDb(ctx.db, { ...input, email: "bob@example.com" }));
+    await errorCode(registerUser({ ...input, email: "bob@example.com" }, ctx.db));
 
     const after = await ctx.db.select().from(users);
     expect(after).toHaveLength(before.length);
@@ -157,8 +157,8 @@ describe.skipIf(!hasTestDatabase)("registerUser", () => {
   it("lets exactly one of two concurrent registrations win the same code", async () => {
     // The reason consumption is a conditional UPDATE and not a read-then-write.
     const results = await Promise.allSettled([
-      registerUserWithDb(ctx.db, { ...input, email: "one@example.com" }),
-      registerUserWithDb(ctx.db, { ...input, email: "two@example.com" }),
+      registerUser({ ...input, email: "one@example.com" }, ctx.db),
+      registerUser({ ...input, email: "two@example.com" }, ctx.db),
     ]);
 
     const fulfilled = results.filter((r) => r.status === "fulfilled");
