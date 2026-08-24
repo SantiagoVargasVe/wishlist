@@ -45,6 +45,7 @@ export const es = {
   wishlist: {
     noImage: "Sin imagen",
     empty: "Todavía no hay artículos en esta lista.",
-    visitorViewComingSoon: "Esta vista llega en una próxima tarea.",
+    byOwner: "Lista de {name}",
+    claimed: "Reservado",
   },
 } as const;

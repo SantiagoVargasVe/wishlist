@@ -105,7 +105,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 **E6 — Frontend**
 - `T050` App shell, layout, i18n scaffolding (Spanish-first) — **done**
 - `T051` `/w/[slug]` owner view — **done**
-- `T052` `/w/[slug]` visitor view
+- `T052` `/w/[slug]` visitor view — **done**
 - `T053` Add-item modal with live OG preview
 - `T054` Edit + delete item flows (remove-vs-delete distinction)
 - `T055` Create / rename / delete wishlist
