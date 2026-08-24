@@ -1,6 +1,8 @@
 import { sql } from "drizzle-orm";
 import {
   customType,
+  doublePrecision,
+  index,
   pgTable,
   text,
   timestamp,
@@ -16,7 +18,6 @@ import {
  * Still to come:
  *   T020  wishlists, items, wishlist_items
  *   T040  item_claims
- *   T042  rate_limits
  */
 
 /**
@@ -64,7 +65,29 @@ export const inviteCodes = pgTable("invite_codes", {
     .default(sql`now()`),
 });
 
+/**
+ * Token buckets for rate limiting.
+ *
+ * `key` is opaque and namespaced by the caller, e.g. `login:203.0.113.7`.
+ *
+ * `tokens` is a float, not an integer, so refill is continuous — a bucket that
+ * gains 0.011 tokens per second behaves smoothly instead of stepping once per
+ * interval.
+ */
+export const rateLimits = pgTable(
+  "rate_limits",
+  {
+    key: text("key").primaryKey(),
+    tokens: doublePrecision("tokens").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (table) => [index("rate_limits_updated_at_idx").on(table.updatedAt)],
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type InviteCode = typeof inviteCodes.$inferSelect;
 export type NewInviteCode = typeof inviteCodes.$inferInsert;
+export type RateLimit = typeof rateLimits.$inferSelect;

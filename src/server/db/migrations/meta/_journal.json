@@ -15,6 +15,13 @@
       "when": 1787586165755,
       "tag": "0001_smooth_gladiator",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787588561135,
+      "tag": "0002_pink_peter_parker",
+      "breakpoints": true
     }
   ]
 }
