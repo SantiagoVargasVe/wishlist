@@ -20,10 +20,9 @@ TanStack Query · react-hook-form + Zod · Drizzle · PostgreSQL 17 · Vitest ·
 ## Getting started
 
 ```bash
-cp .env.example .env      # fill in the values
-docker compose -f infra/docker-compose.dev.yml up -d
+cp .env.example .env      # fill in the values — AUTH_SECRET needs 32+ chars
 npm install
-npm run db:migrate
+npm run db:up             # Postgres 17 in Docker
 npm run dev
 ```
 
