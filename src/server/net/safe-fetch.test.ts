@@ -1,5 +1,6 @@
 import { createServer, type Server } from "node:http";
 import { lookup } from "node:dns/promises";
+import { brotliCompressSync, deflateSync, gzipSync } from "node:zlib";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -178,6 +179,28 @@ describe("safeFetch — response limits", () => {
       }),
     ).rejects.toBeInstanceOf(SafeFetchError);
   });
+
+  // Confirmed live against Amazon's real CDN: a genuine product page (a real
+  // `<!doctype html>` body) served with no Content-Type header at all — not
+  // a hypothetical. A missing header is "unknown," not "wrong," unlike the
+  // present-but-mismatched case above.
+  it("accepts a response with no Content-Type header at all", async () => {
+    const noContentTypeResponse = {
+      statusCode: 200,
+      headers: {},
+      body: (async function* () {
+        yield Buffer.from("<!doctype html><title>ok</title>");
+      })(),
+    };
+
+    const result = await safeFetch("https://example.com/", baseOptions, {
+      resolveHost: vi.fn().mockResolvedValue([PUBLIC]),
+      transport: vi.fn().mockResolvedValue(noContentTypeResponse),
+    });
+
+    expect(result.contentType).toBe("");
+    expect(result.body.toString()).toContain("<title>ok</title>");
+  });
 });
 
 describe("safeFetch — transport failure", () => {
@@ -328,6 +351,91 @@ describe("defaultTransport", () => {
     });
 
     expect(receivedUserAgent).toBe("WishlistBot/1.0");
+  });
+
+  // Confirmed live against Amazon's real CDN (a compressed response with no
+  // Accept-Encoding sent at all) before this was fixed — every OG field came
+  // back null, ogStatus "ok", because the parser was fed raw gzip bytes it
+  // silently misread as UTF-8 text. This exercises the real `zlib` decode
+  // path, not a mock of it, the same way the loopback tests above exercise
+  // the real pinned-`lookup` wiring.
+  it("decompresses a real gzip response before handing it to the caller", async () => {
+    const compressed = gzipSync(Buffer.from("hello from amazon"));
+    await listen((_req, res) => {
+      res.writeHead(200, { "content-type": "text/html", "content-encoding": "gzip" });
+      res.end(compressed);
+    });
+
+    const result = await defaultTransport({
+      url: new URL(`http://localhost:${port}/`),
+      connectAddress: "127.0.0.1",
+      family: 4,
+      timeoutMs: 2000,
+      userAgent: "test-agent/1.0",
+    });
+
+    const chunks: Buffer[] = [];
+    for await (const chunk of result.body) chunks.push(chunk as Buffer);
+    expect(Buffer.concat(chunks).toString()).toBe("hello from amazon");
+  });
+
+  it("decompresses a real brotli response", async () => {
+    const compressed = brotliCompressSync(Buffer.from("brotli body"));
+    await listen((_req, res) => {
+      res.writeHead(200, { "content-encoding": "br" });
+      res.end(compressed);
+    });
+
+    const result = await defaultTransport({
+      url: new URL(`http://localhost:${port}/`),
+      connectAddress: "127.0.0.1",
+      family: 4,
+      timeoutMs: 2000,
+      userAgent: "test-agent/1.0",
+    });
+
+    const chunks: Buffer[] = [];
+    for await (const chunk of result.body) chunks.push(chunk as Buffer);
+    expect(Buffer.concat(chunks).toString()).toBe("brotli body");
+  });
+
+  it("decompresses a real deflate response", async () => {
+    const compressed = deflateSync(Buffer.from("deflate body"));
+    await listen((_req, res) => {
+      res.writeHead(200, { "content-encoding": "deflate" });
+      res.end(compressed);
+    });
+
+    const result = await defaultTransport({
+      url: new URL(`http://localhost:${port}/`),
+      connectAddress: "127.0.0.1",
+      family: 4,
+      timeoutMs: 2000,
+      userAgent: "test-agent/1.0",
+    });
+
+    const chunks: Buffer[] = [];
+    for await (const chunk of result.body) chunks.push(chunk as Buffer);
+    expect(Buffer.concat(chunks).toString()).toBe("deflate body");
+  });
+
+  it("declares Accept-Encoding so a well-behaved server knows it may compress", async () => {
+    let receivedAcceptEncoding = "";
+    await listen((req, res) => {
+      receivedAcceptEncoding = req.headers["accept-encoding"] ?? "";
+      res.writeHead(200);
+      res.end();
+    });
+
+    await defaultTransport({
+      url: new URL(`http://127.0.0.1:${port}/`),
+      connectAddress: "127.0.0.1",
+      family: 4,
+      timeoutMs: 2000,
+      userAgent: "test-agent/1.0",
+    });
+
+    expect(receivedAcceptEncoding).toBe("gzip, deflate, br");
   });
 
   it("rejects when the socket times out", async () => {

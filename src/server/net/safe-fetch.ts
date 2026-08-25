@@ -3,6 +3,7 @@ import "server-only";
 import { lookup as dnsLookup } from "node:dns/promises";
 import http from "node:http";
 import https from "node:https";
+import zlib from "node:zlib";
 
 import { isDeniedAddress } from "./ip-rules";
 
@@ -100,6 +101,33 @@ export function pinnedLookup(
   };
 }
 
+/**
+ * A real CDN (confirmed against Amazon's, live) will gzip an HTML response
+ * even when the request sends no `Accept-Encoding` at all — compression
+ * isn't reliably opt-in in practice, so decompressing whatever
+ * `content-encoding` actually comes back is the only robust option. Without
+ * this, `readWithLimit` below hands the parser raw compressed bytes, which
+ * `.toString("utf-8")` turns into garbage — every OG field then reads as
+ * "this page has no metadata" when the real failure is "we never decoded
+ * the response."
+ */
+function decodeBody(
+  res: http.IncomingMessage,
+  contentEncoding: string | undefined,
+): AsyncIterable<Buffer> {
+  switch (contentEncoding) {
+    case "gzip":
+    case "x-gzip":
+      return res.pipe(zlib.createGunzip());
+    case "br":
+      return res.pipe(zlib.createBrotliDecompress());
+    case "deflate":
+      return res.pipe(zlib.createInflate());
+    default:
+      return res;
+  }
+}
+
 export const defaultTransport: Transport = ({ url, connectAddress, family, timeoutMs, userAgent }) => {
   const client = url.protocol === "https:" ? https : http;
 
@@ -109,13 +137,20 @@ export const defaultTransport: Transport = ({ url, connectAddress, family, timeo
       {
         lookup: pinnedLookup(connectAddress, family),
         timeout: timeoutMs,
-        headers: { "User-Agent": userAgent },
+        headers: {
+          "User-Agent": userAgent,
+          // We can now decode all three — declaring that honestly is what
+          // lets a server skip compressing for a client that couldn't use
+          // it, and costs nothing for one (like Amazon's) that ignores the
+          // declaration either way.
+          "Accept-Encoding": "gzip, deflate, br",
+        },
       },
       (res) => {
         resolve({
           statusCode: res.statusCode ?? 0,
           headers: res.headers as Record<string, string | undefined>,
-          body: res,
+          body: decodeBody(res, res.headers["content-encoding"]),
         });
       },
     );
@@ -223,8 +258,15 @@ export async function safeFetch(
           continue;
         }
 
-        const contentType = response.headers["content-type"] ?? "";
-        if (!options.allowedContentTypePrefixes.some((p) => contentType.startsWith(p))) {
+        // A *missing* header is "unknown," not "wrong" — confirmed live
+        // against Amazon's real CDN, which sometimes serves the actual
+        // product page (a real `<!doctype html>` body, 1.4MB of it) with no
+        // `Content-Type` at all. Rejecting that the same way as an explicit
+        // `application/json` throws away a page we can genuinely parse.
+        // A *present* content type that doesn't match is still rejected —
+        // that's a real signal, unlike silence.
+        const contentType = response.headers["content-type"];
+        if (contentType && !options.allowedContentTypePrefixes.some((p) => contentType.startsWith(p))) {
           throw new SafeFetchError(`disallowed content type: ${contentType}`);
         }
 
@@ -234,7 +276,7 @@ export async function safeFetch(
           },
         );
 
-        return { body, contentType, finalUrl: currentUrl.toString() };
+        return { body, contentType: contentType ?? "", finalUrl: currentUrl.toString() };
       }
 
       throw new SafeFetchError("too many redirects");
