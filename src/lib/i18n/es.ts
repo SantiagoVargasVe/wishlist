@@ -135,5 +135,10 @@ export const es = {
       },
     },
     filterLabel: "Tus listas",
+    share: "Compartir",
+    shareCopied: "Enlace copiado",
+    shareErrors: {
+      generic: "No se pudo compartir el enlace. Intenta de nuevo.",
+    },
   },
 } as const;

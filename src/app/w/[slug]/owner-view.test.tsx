@@ -15,6 +15,7 @@ vi.mock("./delete-wishlist-button", () => ({
   ),
 }));
 vi.mock("./wishlist-filter", () => ({ WishlistFilter: () => null }));
+vi.mock("./share-button", () => ({ ShareButton: () => null }));
 
 import type { MyWishlist } from "@/server/services/me";
 
