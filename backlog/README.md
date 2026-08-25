@@ -67,7 +67,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 | **E7** deploy | Dockerfile, CI image build, pull-timer deploy, WAF rules | T060–T064 |
 | **E8** invites | Self-service invite minting | T070 |
 | **E9** post-mvp-ui | Card layout, image-after-add race, form UX gating, price masking, multi-select lists | T080–T084 |
-| **E10** preview-reliability | Why pasted links so often yield no image, and what to do about it | T085–T087 |
+| **E10** preview-reliability | Why pasted links so often yield no image, and what to do about it | T085–T088 |
 
 ## Task index
 
@@ -162,6 +162,8 @@ hand. Investigated 2026-08-25; the causes turned out to be three unrelated thing
   none. The only fix that works on *every* site, including ones we can't fetch at all
 - `T087` Send a link-preview `User-Agent` so walled retailers respond — **done**, see
   [ADR-0010](../docs/adr/0010-preview-user-agent.md)
+- `T088` Stop treating a bot-wall or error page as a successful scrape — found in production,
+  where a retailer's 403 page sat in `og_cache` as `ok` with `title: "Access Denied"`
 
 **The bot wall — resolved by T087, but read this before touching it.** Several retailers serve
 their real HTML only to a narrow allowlist of link-preview crawlers, decided purely on
