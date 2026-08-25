@@ -5,6 +5,7 @@ import { CreateWishlistModal } from "./create-wishlist-modal";
 import { DeleteWishlistButton } from "./delete-wishlist-button";
 import { ItemGrid } from "./item-grid";
 import { RenameWishlistModal } from "./rename-wishlist-modal";
+import { ShareButton } from "./share-button";
 import { WishlistFilter } from "./wishlist-filter";
 
 export function OwnerView({
@@ -32,6 +33,7 @@ export function OwnerView({
         </div>
         <div className="flex items-center gap-2">
           <CreateWishlistModal />
+          <ShareButton slug={wishlist.slug} title={wishlist.title} />
           <AddItemModal wishlists={wishlists} currentWishlistId={wishlist.id} />
         </div>
       </div>
