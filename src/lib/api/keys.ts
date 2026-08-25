@@ -6,4 +6,5 @@
 export const queryKeys = {
   me: () => ["me"] as const,
   wishlist: (slug: string) => ["wishlist", slug] as const,
+  preview: (url: string) => ["preview", url] as const,
 };

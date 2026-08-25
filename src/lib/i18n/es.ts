@@ -57,5 +57,21 @@ export const es = {
     undoErrors: {
       generic: "No se pudo deshacer la reserva. Intenta de nuevo.",
     },
+    addItem: "Añadir artículo",
+    addItemModal: {
+      title: "Añadir artículo",
+      url: "Enlace del producto",
+      urlPlaceholder: "Pega el enlace aquí",
+      itemTitle: "Título",
+      notes: "Notas",
+      price: "Precio",
+      currency: "Moneda",
+      lists: "¿En qué listas?",
+      submit: "Añadir",
+      submitting: "Añadiendo…",
+      errors: {
+        generic: "No se pudo añadir el artículo. Intenta de nuevo.",
+      },
+    },
   },
 } as const;

@@ -18,13 +18,16 @@ type Props = { params: Promise<{ slug: string }> };
  * Next dedupes `fetch()` automatically but not arbitrary async functions,
  * and "one query, not one per consumer" is the same bar T025 already holds
  * the data layer to.
+ *
+ * Returns every owned wishlist, not just the one matching `slug` — T053's
+ * add-item modal needs the full set for its "which lists" checkbox list.
+ * Callers that only care about the current one still do their own `.find()`.
  */
-const findOwnedWishlist = cache(async (slug: string) => {
+const findOwnedWishlists = cache(async () => {
   const userId = await currentUserId();
   if (!userId) return null;
 
-  const wishlists = await getMyWishlists(userId);
-  return wishlists.find((w) => w.slug === slug) ?? null;
+  return getMyWishlists(userId);
 });
 
 /** `null` for a slug that genuinely doesn't exist — anything else propagates. */
@@ -40,7 +43,7 @@ const findPublicWishlist = cache(async (slug: string) => {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
 
-  const owned = await findOwnedWishlist(slug);
+  const owned = (await findOwnedWishlists())?.find((w) => w.slug === slug);
   if (owned) return { title: owned.title };
 
   const publicWishlist = await findPublicWishlist(slug);
@@ -50,8 +53,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function WishlistPage({ params }: Props) {
   const { slug } = await params;
 
-  const owned = await findOwnedWishlist(slug);
-  if (owned) return <OwnerView wishlist={owned} />;
+  const ownedWishlists = await findOwnedWishlists();
+  const owned = ownedWishlists?.find((w) => w.slug === slug);
+  if (owned && ownedWishlists) return <OwnerView wishlist={owned} wishlists={ownedWishlists} />;
 
   const publicWishlist = await findPublicWishlist(slug);
   if (!publicWishlist) notFound();
