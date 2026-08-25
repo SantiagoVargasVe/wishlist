@@ -68,6 +68,8 @@ export const es = {
       price: "Precio",
       currency: "Moneda",
       lists: "¿En qué listas?",
+      removeList: "Quitar",
+      noListsFound: "No se encontraron listas.",
       submit: "Añadir",
       submitting: "Añadiendo…",
       errors: {

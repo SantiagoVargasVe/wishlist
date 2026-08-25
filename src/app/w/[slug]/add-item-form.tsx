@@ -15,7 +15,7 @@ import type { PublicWishlist } from "@/server/services/wishlists";
 import { useItemPreview } from "./hooks/use-item-preview";
 import { ItemPreviewField } from "./item-preview-field";
 import { PriceFields } from "./price-fields";
-import { WishlistCheckboxList } from "./wishlist-checkbox-list";
+import { WishlistMultiSelect } from "./wishlist-multiselect";
 
 export function AddItemForm({
   wishlists,
@@ -66,7 +66,7 @@ export function AddItemForm({
         <Input {...register("notes", { setValueAs: (v: string) => (v === "" ? undefined : v) })} />
       </Field>
       <PriceFields control={control} errors={errors} />
-      <WishlistCheckboxList
+      <WishlistMultiSelect
         wishlists={wishlists}
         control={control}
         error={errors.wishlistIds?.message}
