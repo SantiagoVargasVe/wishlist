@@ -8,6 +8,7 @@ import { inviteCodes, users } from "../db/schema";
 import type { Db } from "../db/types";
 import { PG_UNIQUE_VIOLATION, isPgError } from "../db/pg-errors";
 import { InviteErrors, emailTaken, invalidCredentials } from "../errors";
+import { generateInviteCode } from "@/lib/invite-code";
 import type { LoginInput, RegisterInput } from "@/lib/schemas/auth";
 import { createDefaultWishlist, type PublicWishlist } from "./wishlists";
 
@@ -154,6 +155,31 @@ export async function loginUser(
   if (!user || !passwordMatches) throw invalidCredentials();
 
   return { id: user.id, email: user.email, displayName: user.displayName };
+}
+
+const INVITE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+
+export type InviteResult = { code: string; expiresAt: Date };
+
+/**
+ * `POST /api/invites` (T070). Any authenticated user may mint one — unlike
+ * `npm run seed:invite` (bootstrap, admin-only, never expires), a
+ * self-minted code expires in 7 days. Opening minting to every account means
+ * a forgotten or accidentally-shared code should die on its own rather than
+ * stay valid forever; consumption (`registerUser` above) already handles
+ * `expires_at` and needs no changes.
+ *
+ * No collision retry, same call `generateSlug()` (wishlists.ts) already
+ * makes: the alphabet is wide enough that a collision is astronomically
+ * unlikely, and retrying would be complexity with no real payoff.
+ */
+export async function createInvite(userId: string, db: Db = getDb()): Promise<InviteResult> {
+  const code = generateInviteCode();
+  const expiresAt = new Date(Date.now() + INVITE_EXPIRY_MS);
+
+  await db.insert(inviteCodes).values({ code, createdBy: userId, expiresAt });
+
+  return { code, expiresAt };
 }
 
 /** Look up a user by id. Returns null rather than throwing — callers decide. */

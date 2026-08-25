@@ -15,6 +15,7 @@ export type RateLimitPolicy = {
 
 const MINUTE = 60;
 const HOUR = 60 * 60;
+const DAY = 24 * HOUR;
 
 export const policies = {
   /**
@@ -31,4 +32,7 @@ export const policies = {
 
   /** T040. Per IP; there is a separate per-slug cap in the contract. */
   claim: { capacity: 20, windowSeconds: HOUR },
+
+  /** T070. Minting is deliberate and infrequent — a handful of relatives, not bulk. */
+  invite: { capacity: 5, windowSeconds: DAY },
 } as const satisfies Record<string, RateLimitPolicy>;

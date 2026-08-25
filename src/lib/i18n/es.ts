@@ -144,4 +144,15 @@ export const es = {
     itemsCountOne: "1 artículo",
     itemsCount: "{n} artículos",
   },
+  invite: {
+    trigger: "Invitar",
+    title: "Invitar a alguien",
+    description: "Genera un código de invitación de un solo uso, válido por 7 días.",
+    generate: "Generar código",
+    generating: "Generando…",
+    copy: "Copiar código",
+    copied: "Código copiado",
+    copyFailed: "No se pudo copiar el código.",
+    expiresOn: "Válido hasta el {date}",
+  },
 } as const;

@@ -2,7 +2,7 @@
 id: T070
 title: Self-service invite minting
 epic: E8-invites
-status: todo
+status: done
 depends_on: [T010, T012]
 size: M
 ---
@@ -50,6 +50,17 @@ with a copy-to-clipboard affordance (plain copy, not `ShareButton`'s native-shar
 `navigator.share` to attach to meaningfully). Listing every code a user has minted, or revoking an
 unused one, is real additional scope — out of scope here, worth its own task if it turns out to
 matter.
+
+## Trade-off found during implementation
+
+Making `AppShell` read `currentUserId()` makes **every** route that renders through the root
+layout dynamic, not just `/w/[slug]` (which already was, via cookies elsewhere). `next build`'s
+own route table shows the change directly: `/login`, `/register`, and `/_not-found` flip from
+`○` (prerendered once, served as static HTML) to `ƒ` (rendered per request) the moment the header
+can legitimately differ by session. That's the correct trade for a header that's no longer the
+same for everyone — but it's an app-wide cost from one component, worth knowing about rather than
+discovering by accident later. Not worth chasing a fix (e.g. a Suspense/PPR boundary around just
+the invite button) for a family app with negligible traffic.
 
 ## Acceptance criteria
 

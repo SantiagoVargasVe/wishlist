@@ -1,17 +1,22 @@
 import Link from "next/link";
 
 import { t } from "@/lib/i18n";
+import { currentUserId } from "@/server/auth/session";
 
 import { Toaster } from "../_ui/toast";
 import { ThemeToggle } from "../_ui/theme-toggle";
+import { InviteButton } from "./invite-button";
 
 /**
- * Persistent header + content wrapper for every route. Mobile-first: the
- * header holds only branding and the theme toggle for now — session-aware
- * nav (logout, share CTA) lands with the pages that have a session to read
- * (T014, T051, T052), not here.
+ * Persistent header + content wrapper for every route. Mobile-first.
+ *
+ * The invite entry point (T070) is the first session-aware piece of this
+ * shell — everything else here works identically for an owner, a visitor,
+ * or nobody logged in at all.
  */
-export function AppShell({ children }: { children: React.ReactNode }) {
+export async function AppShell({ children }: { children: React.ReactNode }) {
+  const userId = await currentUserId();
+
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="border-b border-border">
@@ -19,7 +24,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Link href="/" className="text-lg font-semibold">
             {t("common.appName")}
           </Link>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            {userId && <InviteButton />}
+            <ThemeToggle />
+          </div>
         </div>
       </header>
       <main className="flex-1">{children}</main>
