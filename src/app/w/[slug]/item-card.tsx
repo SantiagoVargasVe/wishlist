@@ -27,31 +27,45 @@ export function ItemCard({
       : null;
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-sm">
-      <div className="flex aspect-square items-center justify-center bg-muted">
+    <div className="flex h-[26rem] flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-sm">
+      {/* Fixed height, not aspect-square: aspect-square ties height to the
+          grid column's width, which varies across breakpoints and column
+          counts — a fixed height keeps every card the same regardless.
+          object-contain (not -cover) so a non-square photo is never
+          cropped; the bg-muted fill reads as intentional letterboxing. */}
+      <div className="flex h-48 shrink-0 items-center justify-center bg-muted">
         {item.imagePath ? (
           <Image
             src={`/media/${item.imagePath}`}
             alt=""
             width={400}
             height={400}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-contain"
           />
         ) : (
           <span className="text-sm text-muted-foreground">{t("wishlist.noImage")}</span>
         )}
       </div>
-      <div className="flex flex-1 flex-col gap-2 p-3">
+      <div className="flex flex-1 flex-col gap-2 overflow-hidden p-3">
         <a
           href={item.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="line-clamp-2 text-sm font-medium hover:underline"
+          // min-h reserves the same space whether the title wraps to one
+          // line or two, so a short title doesn't pull the price/actions
+          // below it up and make cards in the same row look uneven.
+          className="line-clamp-2 min-h-10 text-sm font-medium hover:underline"
         >
           {item.title}
         </a>
-        {price && <p className="text-sm text-muted-foreground">{price}</p>}
-        <ItemActions item={item} wishlistId={wishlistId} isLastList={isLastList} />
+        {/* Always rendered, even with no price — an item with no price
+            would otherwise be one line shorter than its row-mates. */}
+        <p className="text-sm text-muted-foreground">
+          {price && item.priceCurrency ? `${price} ${item.priceCurrency}` : " "}
+        </p>
+        <div className="mt-auto">
+          <ItemActions item={item} wishlistId={wishlistId} isLastList={isLastList} />
+        </div>
       </div>
     </div>
   );

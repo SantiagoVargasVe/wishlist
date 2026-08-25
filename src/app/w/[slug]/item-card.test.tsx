@@ -24,11 +24,11 @@ const baseItem = {
 const cardProps = { wishlistId: "w1", isLastList: false };
 
 describe("ItemCard", () => {
-  it("shows the formatted price when both amount and currency are set", () => {
+  it("shows the formatted price with an explicit currency code — $ alone doesn't distinguish COP from USD", () => {
     render(
       <ItemCard item={{ ...baseItem, priceAmount: "49.99", priceCurrency: "USD" }} {...cardProps} />,
     );
-    expect(screen.getByText("$49.99")).toBeInTheDocument();
+    expect(screen.getByText("$49.99 USD")).toBeInTheDocument();
   });
 
   it("shows no price when either amount or currency is missing", () => {
