@@ -1,5 +1,6 @@
 import { updateItemSchema } from "@/lib/schemas/item";
 import { requireUserId } from "@/server/auth/session";
+import { downloadItemImage } from "@/server/og/image";
 import { deleteItem, updateItem } from "@/server/services/items";
 
 import { handle } from "../../_lib/respond";
@@ -13,6 +14,11 @@ export const PATCH = handle(async (request, { params }: Context) => {
   const input = updateItemSchema.parse(await request.json());
 
   const item = await updateItem(id, userId, input);
+
+  // Unawaited, matching POST /api/items: a slow CDN must never hold up the
+  // save (non-negotiable #2). `downloadItemImage` never throws.
+  if (input.imageUrl) void downloadItemImage(item.id, input.imageUrl);
+
   return Response.json({ item });
 });
 

@@ -2,7 +2,7 @@
 id: T086
 title: Let the user supply an item image URL when the scrape finds none
 epic: E10-preview-reliability
-status: todo
+status: done
 depends_on: [T033, T053, T054]
 size: L
 ---

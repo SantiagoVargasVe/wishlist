@@ -51,6 +51,10 @@ export const updateItemSchema = z
     notes: z.string().trim().max(2000).nullable().optional(),
     priceAmount: priceAmountSchema.optional(),
     priceCurrency: priceCurrencySchema.optional(),
+    // Replaces the stored picture: `PATCH` re-runs the download, exactly as
+    // create does. Not nullable — clearing an image isn't a flow anything
+    // offers, and "send null to clear" would need its own file cleanup.
+    imageUrl: z.url("Enter a valid image URL").optional(),
   })
   .refine(
     (v) => (v.priceAmount === undefined) === (v.priceCurrency === undefined),

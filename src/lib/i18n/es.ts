@@ -76,6 +76,25 @@ export const es = {
         generic: "No se pudo añadir el artículo. Intenta de nuevo.",
       },
     },
+    itemImage: {
+      label: "Imagen",
+      // Shown when the scrape found nothing — some stores block us entirely.
+      missing: "No pudimos obtener la imagen de esta tienda.",
+      dropHint: "Arrastra una imagen, pégala con Ctrl+V, o toca para elegir una",
+      dropHintShort: "Toca para elegir una imagen o pégala",
+      chooseFile: "Elegir imagen",
+      orPasteUrl: "O pega la dirección de la imagen",
+      urlPlaceholder: "https://…/imagen.jpg",
+      replace: "Cambiar imagen",
+      remove: "Quitar imagen",
+      uploading: "Subiendo imagen…",
+      preview: "Vista previa de la imagen",
+      errors: {
+        unsupported: "Ese archivo no es una imagen que podamos usar.",
+        tooLarge: "Esa imagen es demasiado grande.",
+        uploadFailed: "No se pudo subir la imagen. El artículo sí se guardó.",
+      },
+    },
     editItem: "Editar",
     editItemModal: {
       title: "Editar artículo",

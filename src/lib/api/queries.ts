@@ -100,6 +100,26 @@ export function useUpdateItemMutation() {
   });
 }
 
+/**
+ * Uploads raw image bytes for an existing item (T086) — a picked file, a
+ * dragged file, or an image pasted from the clipboard all arrive as the same
+ * `Blob`. Sent as the raw body rather than `multipart/form-data`: there's one
+ * field, and the server needs to cap the stream before buffering it.
+ *
+ * The explicit `Content-Type` overrides `apiFetch`'s JSON default — it spreads
+ * caller headers last precisely so a non-JSON body can say what it is.
+ */
+export function useUploadItemImageMutation() {
+  return useMutation({
+    mutationFn: ({ id, blob }: { id: string; blob: Blob }) =>
+      apiFetch<void>(`/api/items/${id}/image`, {
+        method: "POST",
+        body: blob,
+        headers: { "Content-Type": blob.type || "application/octet-stream" },
+      }),
+  });
+}
+
 export function useDeleteItemMutation() {
   return useMutation({
     mutationFn: (id: string) => apiFetch<void>(`/api/items/${id}`, { method: "DELETE" }),

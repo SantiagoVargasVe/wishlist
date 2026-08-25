@@ -12,7 +12,7 @@ vi.mock("../net/safe-fetch", () => ({ safeFetch: vi.fn() }));
 import { items, users } from "../db/schema";
 import { createTestDb, hasTestDatabase, type TestDb } from "../db/test-support";
 import { safeFetch } from "../net/safe-fetch";
-import { downloadItemImage, isValidImageFilename } from "./image";
+import { downloadItemImage, isValidImageFilename, storeUploadedItemImage } from "./image";
 
 /** A real, in-memory-generated image — exercises sharp for real, not a mock of it. */
 async function fixtureImage(width: number, height: number): Promise<Buffer> {
@@ -22,6 +22,27 @@ async function fixtureImage(width: number, height: number): Promise<Buffer> {
     .jpeg()
     .toBuffer();
 }
+
+/**
+ * One directory shared by every describe in this file, set up before any of
+ * them run. `config` is a cached singleton read on first access, so a second
+ * `beforeAll` setting IMAGE_STORAGE_PATH would be ignored and its files would
+ * land in whichever directory won the race — which passes in isolation and
+ * fails in a full run.
+ */
+let imagesDir: string;
+
+beforeAll(async () => {
+  process.env.DATABASE_URL = "postgresql://u:p@localhost:5432/db";
+  process.env.AUTH_SECRET = "x".repeat(48);
+  process.env.APP_URL = "http://localhost:3000";
+  imagesDir = await mkdtemp(path.join(tmpdir(), "wishlist-images-test-"));
+  process.env.IMAGE_STORAGE_PATH = imagesDir;
+});
+
+afterAll(async () => {
+  await rm(imagesDir, { recursive: true, force: true });
+});
 
 describe("isValidImageFilename", () => {
   it("accepts a well-formed uuid.webp filename", () => {
@@ -47,24 +68,14 @@ describe("isValidImageFilename", () => {
 
 describe.skipIf(!hasTestDatabase)("downloadItemImage", () => {
   let ctx: TestDb;
-  let imagesDir: string;
   let ownerId: string;
 
   beforeAll(async () => {
-    // image.ts reads config lazily, same pattern jwt.test.ts/preview.test.ts
-    // use — set the required vars before the first access.
-    process.env.DATABASE_URL = "postgresql://u:p@localhost:5432/db";
-    process.env.AUTH_SECRET = "x".repeat(48);
-    process.env.APP_URL = "http://localhost:3000";
-    imagesDir = await mkdtemp(path.join(tmpdir(), "wishlist-images-test-"));
-    process.env.IMAGE_STORAGE_PATH = imagesDir;
-
     ctx = await createTestDb();
   });
 
   afterAll(async () => {
     await ctx?.close();
-    await rm(imagesDir, { recursive: true, force: true });
   });
 
   afterEach(async () => {
@@ -195,5 +206,127 @@ describe.skipIf(!hasTestDatabase)("downloadItemImage", () => {
     const [row] = await ctx.db.select().from(items).where(eq(items.id, itemId));
     expect(row.imagePath).toBeNull();
     expect(row.ogStatus).toBe("failed");
+  });
+});
+
+/**
+ * T086. These are the guards, so they run against real sharp on real bytes —
+ * mocking the decoder would test the mock, not the guard.
+ */
+describe.skipIf(!hasTestDatabase)("storeUploadedItemImage — guards", () => {
+  let ctx: TestDb;
+
+  beforeAll(async () => {
+    ctx = await createTestDb();
+  });
+
+  afterAll(async () => {
+    await ctx?.close();
+  });
+
+  afterEach(async () => {
+    await ctx.sql`TRUNCATE items, users RESTART IDENTITY CASCADE`;
+  });
+
+  async function newItem(): Promise<string> {
+    const [user] = await ctx.db
+      .insert(users)
+      .values({ email: "up@example.com", passwordHash: "x", displayName: "Up" })
+      .returning();
+    const [item] = await ctx.db
+      .insert(items)
+      .values({ ownerId: user.id, url: "https://example.com/p", title: "Widget" })
+      .returning();
+    return item.id;
+  }
+
+  it("stores a real uploaded image as webp and records ok", async () => {
+    const itemId = await newItem();
+    await storeUploadedItemImage(itemId, await fixtureImage(1600, 1200), ctx.db);
+
+    expect(existsSync(path.join(imagesDir, `${itemId}.webp`))).toBe(true);
+    const [row] = await ctx.db.select().from(items).where(eq(items.id, itemId));
+    expect(row.imagePath).toBe(`${itemId}.webp`);
+    expect(row.ogStatus).toBe("ok");
+
+    const meta = await sharp(path.join(imagesDir, `${itemId}.webp`)).metadata();
+    expect(meta.format).toBe("webp");
+    expect(meta.width).toBe(800);
+  });
+
+  it("rejects a file that isn't an image at all", async () => {
+    const itemId = await newItem();
+    await expect(
+      storeUploadedItemImage(itemId, Buffer.from("#!/bin/sh\nrm -rf /\n"), ctx.db),
+    ).rejects.toThrow();
+
+    expect(existsSync(path.join(imagesDir, `${itemId}.webp`))).toBe(false);
+  });
+
+  // sharp will happily render SVG via librsvg, and `image/svg+xml` matches the
+  // `image/` Content-Type prefix — so the format allowlist is the only thing
+  // standing between a "picture" and an XML document that can reference
+  // external resources.
+  it("rejects an SVG even though sharp can decode it", async () => {
+    const itemId = await newItem();
+    const svg = Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="red"/></svg>`,
+    );
+
+    await expect(storeUploadedItemImage(itemId, svg, ctx.db)).rejects.toThrow();
+    expect(existsSync(path.join(imagesDir, `${itemId}.webp`))).toBe(false);
+  });
+
+  it("rejects an SVG carrying an external reference", async () => {
+    const itemId = await newItem();
+    const svg = Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="80" height="80">` +
+        `<image xlink:href="http://169.254.169.254/latest/meta-data/" width="80" height="80"/></svg>`,
+    );
+
+    await expect(storeUploadedItemImage(itemId, svg, ctx.db)).rejects.toThrow();
+  });
+
+  // The guard a byte cap cannot replace: this fixture is small on the wire and
+  // enormous decoded, which is the whole point of a decompression bomb.
+  it("rejects a decompression bomb that is well under the byte limit", async () => {
+    const itemId = await newItem();
+    const bomb = await sharp({
+      create: { width: 9000, height: 9000, channels: 3, background: { r: 1, g: 2, b: 3 } },
+      limitInputPixels: false,
+    })
+      .png({ compressionLevel: 9 })
+      .toBuffer();
+
+    // Comfortably inside OG_MAX_IMAGE_BYTES (10MB) and IMAGE_MAX_UPLOAD_BYTES
+    // (8MB) — a size check alone would wave this straight through.
+    expect(bomb.length).toBeLessThan(4 * 1024 * 1024);
+    // 81 megapixels, over the 40MP IMAGE_MAX_PIXELS ceiling.
+    await expect(storeUploadedItemImage(itemId, bomb, ctx.db)).rejects.toThrow();
+    expect(existsSync(path.join(imagesDir, `${itemId}.webp`))).toBe(false);
+  });
+
+  it("accepts a large but legitimate photo below the pixel ceiling", async () => {
+    const itemId = await newItem();
+    // ~12MP, a normal phone photo.
+    await storeUploadedItemImage(itemId, await fixtureImage(4000, 3000), ctx.db);
+    expect(existsSync(path.join(imagesDir, `${itemId}.webp`))).toBe(true);
+  });
+
+  // A phone photo carries EXIF, which routinely includes GPS coordinates — so
+  // this matters more for an upload than for a retailer's CDN image.
+  it("strips EXIF rather than storing what the camera recorded", async () => {
+    const itemId = await newItem();
+    const withExif = await sharp({
+      create: { width: 400, height: 300, channels: 3, background: { r: 9, g: 9, b: 9 } },
+    })
+      .withExif({ IFD0: { Copyright: "somebody", Make: "TestPhone" } })
+      .jpeg()
+      .toBuffer();
+
+    await storeUploadedItemImage(itemId, withExif, ctx.db);
+
+    const meta = await sharp(path.join(imagesDir, `${itemId}.webp`)).metadata();
+    expect(meta.exif).toBeUndefined();
   });
 });

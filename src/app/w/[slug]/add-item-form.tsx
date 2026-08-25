@@ -12,7 +12,9 @@ import { t } from "@/lib/i18n";
 import { createItemSchema, type CreateItemInput } from "@/lib/schemas/item";
 import type { PublicWishlist } from "@/server/services/wishlists";
 
+import { useItemImage } from "./hooks/use-item-image";
 import { useItemPreview } from "./hooks/use-item-preview";
+import { ItemImagePicker } from "./item-image-picker";
 import { ItemPreviewField } from "./item-preview-field";
 import { PriceFields } from "./price-fields";
 import { WishlistMultiSelect } from "./wishlist-multiselect";
@@ -48,11 +50,16 @@ export function AddItemForm({
   });
 
   const preview = useItemPreview(watch("url"), setValue);
+  const image = useItemImage();
   const fieldsDisabled = !preview.fieldsEnabled;
 
   const onSubmit = handleSubmit(async (input) => {
     try {
-      await create.mutateAsync(input);
+      const imageUrl = image.imageUrlFor(input.imageUrl);
+      const { item } = await create.mutateAsync({ ...input, imageUrl });
+      // After the item exists, so it has an id to attach bytes to. Never
+      // throws — a failed upload toasts and leaves the item saved.
+      await image.uploadTo(item.id);
       onSuccess();
       router.refresh();
       // POST /api/items (T033) fires the image download unawaited — a slow
@@ -65,7 +72,7 @@ export function AddItemForm({
       // sub-second — download a real chance to land without the user
       // reloading manually. Skipped entirely when there was never an image
       // to download in the first place.
-      if (input.imageUrl) {
+      if (image.hasPendingImage(input.imageUrl)) {
         window.setTimeout(() => router.refresh(), 1500);
         window.setTimeout(() => router.refresh(), 3500);
       }
@@ -89,6 +96,15 @@ export function AddItemForm({
           disabled={fieldsDisabled}
         />
       </Field>
+      <ItemImagePicker
+        picked={image.picked}
+        scrapedUrl={preview.data?.imageUrl}
+        error={image.error}
+        disabled={fieldsDisabled}
+        onPickBlob={image.pickBlob}
+        onPickUrl={image.pickUrl}
+        onClear={image.clear}
+      />
       <PriceFields control={control} errors={errors} disabled={fieldsDisabled} />
       <WishlistMultiSelect
         wishlists={wishlists}

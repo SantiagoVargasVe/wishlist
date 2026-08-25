@@ -100,6 +100,30 @@ and a per-slug cap matter more than raw request throttling.
 - OG metadata is **untrusted scraped content**. A hostile page can return a 10MB `og:title` or
   embedded markup. Truncate, strip, treat exactly like user input.
 
+## Images
+
+Two ways bytes become a stored image — downloaded from a URL, or uploaded by the user — and both
+go through the same guards in `src/server/og/image.ts`. Measured, not assumed:
+
+- **A byte cap is not enough on its own.** A 12000x12000 single-colour PNG is ~436KB on the wire
+  and roughly 430MB decoded. sharp's own default only refuses around 268 megapixels, which is far
+  too generous for a box sharing RAM with everything else. `IMAGE_MAX_PIXELS` (40MP) is the guard
+  that actually bounds memory; the byte caps bound the transfer.
+- **Never trust `Content-Type` or a file extension.** The decoded format is the check, against an
+  explicit raster allowlist.
+- **SVG is rejected, deliberately.** It is a document format, not a bitmap: sharp renders it
+  through librsvg, which parses XML and honours external references, so an
+  `<image xlink:href="http://…">` inside a "picture" becomes an outbound fetch that never passed
+  `safe-fetch`. A `Content-Type` check cannot catch this either — `image/svg+xml` matches the
+  `image/` prefix that the download path allows.
+- **Uploads are read through a streaming cap** that aborts mid-body. `Content-Length` is a client
+  claim, used only as a cheap early exit; the running total is what enforces the limit. Buffering
+  first and measuring afterwards is the denial of service, not the defence.
+- **EXIF is stripped** (sharp's default, and left that way on purpose). It matters more for an
+  upload than a CDN image: a phone photo routinely carries GPS coordinates.
+- **Stored filenames come from the item id**, never from the uploaded filename — the same rule as
+  `/media/:filename`. Never join user input onto a path.
+
 ## Privacy
 
 - The public list view exposes `displayName` and nothing else. No email, no user id, no other
