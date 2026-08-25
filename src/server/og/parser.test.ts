@@ -161,6 +161,44 @@ describe("parseProductMetadata — image precedence and resolution", () => {
   });
 });
 
+describe("parseProductMetadata — vendor image fallback (T035)", () => {
+  const AMAZON_URL = "https://www.amazon.com/dp/B0FK39FXJH";
+  const landingImage = (map: Record<string, [number, number]>) =>
+    `<img id="landingImage" data-a-dynamic-image='${JSON.stringify(map)}'>`;
+
+  it("resolves imageUrl from Amazon's data-a-dynamic-image when no standard tag is present", () => {
+    const result = parseProductMetadata(
+      html("", landingImage({ "https://m.media-amazon.com/images/large.jpg": [1000, 1000] })),
+      AMAZON_URL,
+    );
+    expect(result.imageUrl).toBe("https://m.media-amazon.com/images/large.jpg");
+  });
+
+  it("still prefers a standard og:image over the vendor fallback when both are present", () => {
+    const result = parseProductMetadata(
+      html(
+        `<meta property="og:image" content="https://cdn.example/og.jpg">`,
+        landingImage({ "https://m.media-amazon.com/images/large.jpg": [1000, 1000] }),
+      ),
+      AMAZON_URL,
+    );
+    expect(result.imageUrl).toBe("https://cdn.example/og.jpg");
+  });
+
+  it("resolves to null, not throwing, for an Amazon page with no dynamic-image attribute either", () => {
+    const result = parseProductMetadata(html(""), AMAZON_URL);
+    expect(result.imageUrl).toBeNull();
+  });
+
+  it("ignores the same data-a-dynamic-image attribute on a non-Amazon hostname", () => {
+    const result = parseProductMetadata(
+      html("", landingImage({ "https://cdn.example/large.jpg": [1000, 1000] })),
+      PAGE_URL,
+    );
+    expect(result.imageUrl).toBeNull();
+  });
+});
+
 describe("parseProductMetadata — site name", () => {
   it("uses og:site_name when present", () => {
     const result = parseProductMetadata(html(`<meta property="og:site_name" content="Retailer">`), PAGE_URL);
