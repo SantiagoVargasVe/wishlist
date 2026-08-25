@@ -59,6 +59,13 @@ describe("parseProductMetadata — title precedence", () => {
     );
     expect(result.title).toBe("OG Title");
   });
+
+  it("also reads og:title written with name= instead of property=", () => {
+    // Non-compliant with the OG spec, but MDN's own docs pages do exactly
+    // this — confirmed live against a real fetch, not assumed.
+    const result = parseProductMetadata(html(`<meta name="og:title" content="Name-attr OG Title">`), PAGE_URL);
+    expect(result.title).toBe("Name-attr OG Title");
+  });
 });
 
 describe("parseProductMetadata — description precedence", () => {

@@ -223,10 +223,20 @@ describe("safeFetch — error messages never leak upstream detail", () => {
 });
 
 describe("pinnedLookup", () => {
-  it("hands back the given address and family, ignoring hostname/options entirely", () => {
+  it("hands back the given address and family in the plain (single-address) form", () => {
     const callback = vi.fn();
     pinnedLookup("93.184.216.34", 4)("some-hostname", {}, callback);
     expect(callback).toHaveBeenCalledWith(null, "93.184.216.34", 4);
+  });
+
+  it("hands back an array of one in the { all: true } form Happy Eyeballs uses", () => {
+    // Node 20+ enables autoSelectFamily by default, and its connection
+    // racing calls `lookup` with `{ all: true }` expecting this shape —
+    // missing it is exactly the bug a real fetch caught that every
+    // stubbed-transport test in this file couldn't.
+    const callback = vi.fn();
+    pinnedLookup("93.184.216.34", 4)("some-hostname", { all: true }, callback);
+    expect(callback).toHaveBeenCalledWith(null, [{ address: "93.184.216.34", family: 4 }]);
   });
 });
 
@@ -272,6 +282,12 @@ describe("defaultTransport", () => {
   // it's the only way to prove the pinned-`lookup` wiring and the Host
   // header actually work against Node's real http module, which every
   // stubbed-transport test above deliberately doesn't exercise.
+  //
+  // The URL uses the hostname "localhost", not the bare IP: Node 20+'s
+  // autoSelectFamily (Happy Eyeballs) only requests `{ all: true }` from
+  // `lookup` for a hostname that needs resolving — a literal IP skips
+  // resolution entirely, which is exactly how the array-callback bug this
+  // test now guards against went unnoticed by the original version of it.
   it("connects to the pinned address and receives a real response", async () => {
     await listen((req, res) => {
       res.writeHead(200, { "content-type": "text/plain", "x-received-host": req.headers.host ?? "" });
@@ -279,7 +295,7 @@ describe("defaultTransport", () => {
     });
 
     const result = await defaultTransport({
-      url: new URL(`http://127.0.0.1:${port}/`),
+      url: new URL(`http://localhost:${port}/`),
       connectAddress: "127.0.0.1",
       family: 4,
       timeoutMs: 2000,
@@ -288,7 +304,7 @@ describe("defaultTransport", () => {
 
     expect(result.statusCode).toBe(200);
     expect(result.headers["content-type"]).toBe("text/plain");
-    expect(result.headers["x-received-host"]).toBe(`127.0.0.1:${port}`);
+    expect(result.headers["x-received-host"]).toBe(`localhost:${port}`);
 
     const chunks: Buffer[] = [];
     for await (const chunk of result.body) chunks.push(chunk as Buffer);
