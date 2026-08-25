@@ -1,7 +1,7 @@
 /**
  * Next runs `register()` once when the server starts.
  *
- * Two jobs, both of which have to happen at boot rather than at build:
+ * Three jobs, all of which have to happen at boot rather than at build:
  *
  * 1. Validate the environment. Config is lazy so `next build` needs no secrets
  *    (see config.schema.ts), but a running server with a broken environment
@@ -12,6 +12,10 @@
  *    lands in GHCR and a timer pulls it (ADR-0007) — so there is nowhere to run
  *    a manual migration step. In development you run `npm run db:migrate`
  *    yourself, so a boot-time migration would just be a surprise.
+ *
+ * 3. Schedule the weekly orphan-image sweep (T034), in production only, for
+ *    the same reason: nothing else in this deploy model ever runs on a
+ *    schedule inside the app itself. See sweep.ts and ADR-0004.
  */
 export async function register() {
   // Edge runtime has no process.env worth validating, and postgres is Node-only.
@@ -23,5 +27,8 @@ export async function register() {
   if (config.NODE_ENV === "production") {
     const { runMigrations } = await import("./server/db/migrate");
     await runMigrations();
+
+    const { scheduleWeeklySweep } = await import("./server/og/sweep");
+    scheduleWeeklySweep();
   }
 }
