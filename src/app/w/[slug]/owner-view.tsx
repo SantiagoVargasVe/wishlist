@@ -5,6 +5,7 @@ import { CreateWishlistModal } from "./create-wishlist-modal";
 import { DeleteWishlistButton } from "./delete-wishlist-button";
 import { ItemGrid } from "./item-grid";
 import { RenameWishlistModal } from "./rename-wishlist-modal";
+import { WishlistFilter } from "./wishlist-filter";
 
 export function OwnerView({
   wishlist,
@@ -20,6 +21,7 @@ export function OwnerView({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
+      <WishlistFilter wishlists={wishlists} currentId={wishlist.id} />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold">{wishlist.title}</h1>

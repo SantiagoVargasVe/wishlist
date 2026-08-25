@@ -109,7 +109,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 - `T053` Add-item modal with live OG preview — **done**
 - `T054` Edit + delete item flows (remove-vs-delete distinction) — **done**
 - `T055` Create / rename / delete wishlist — **done**
-- `T056` Wishlist filter (which list to show — no price filter, see ADR-0009)
+- `T056` Wishlist filter (which list to show — no price filter, see ADR-0009) — **done**
 - `T057` Share CTA
 - `T058` `generateMetadata()` OG tags on the share page
 
