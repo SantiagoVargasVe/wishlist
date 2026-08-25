@@ -1,15 +1,10 @@
-import { Controller, type Control, type FieldErrors, type Path, type UseFormRegister } from "react-hook-form";
+import { Controller, useWatch, type Control, type FieldErrors, type Path } from "react-hook-form";
 
 import { Field } from "@/app/_ui/field";
 import { Input } from "@/app/_ui/input";
 import { Select, SelectContent, SelectTrigger } from "@/app/_ui/select";
 import { t } from "@/lib/i18n";
-
-/** "" → undefined: an untouched/cleared native input reads back as an empty
- * string, but the schema's `priceAmount` is optional and only meaningful
- * paired with a currency — an empty field must validate as "not provided",
- * never "invalid amount". */
-const emptyToUndefined = (v: string) => (v === "" ? undefined : v);
+import { formatAmountInput, parseAmountInput } from "@/lib/money";
 
 type PriceFieldValues = { priceAmount?: string; priceCurrency?: "COP" | "USD" };
 
@@ -17,18 +12,24 @@ type PriceFieldValues = { priceAmount?: string; priceCurrency?: "COP" | "USD" };
  * Generic over any form shape that has these two fields — `createItemSchema`
  * and `updateItemSchema` (T053, T054) give them the identical type, so one
  * component serves both forms and the type parameter is inferred from
- * whatever `register`/`control`/`errors` the caller already has; no call site
- * needs to name it.
+ * whatever `control`/`errors` the caller already has; no call site needs to
+ * name it.
  */
 export function PriceFields<T extends PriceFieldValues>({
-  register,
   control,
   errors,
 }: {
-  register: UseFormRegister<T>;
   control: Control<T>;
   errors: FieldErrors<T>;
 }) {
+  // Masking needs the *other* field's live value — the display format
+  // (period vs. comma thousands) depends on whichever currency is currently
+  // selected, so switching it reformats an already-typed amount to match.
+  const currency = useWatch({ control, name: "priceCurrency" as Path<T> }) as
+    | "COP"
+    | "USD"
+    | undefined;
+
   return (
     <div className="flex gap-3">
       <Field
@@ -36,9 +37,27 @@ export function PriceFields<T extends PriceFieldValues>({
         error={errors.priceAmount?.message as string | undefined}
         className="flex-1"
       >
-        <Input
-          inputMode="decimal"
-          {...register("priceAmount" as Path<T>, { setValueAs: emptyToUndefined })}
+        <Controller
+          name={"priceAmount" as Path<T>}
+          control={control}
+          render={({ field }) => {
+            const raw = (field.value as string | undefined) ?? "";
+            return (
+              <Input
+                inputMode="decimal"
+                value={currency ? formatAmountInput(raw, currency) : raw}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === "") {
+                    field.onChange(undefined);
+                    return;
+                  }
+                  field.onChange(currency ? parseAmountInput(value, currency) : value);
+                }}
+                onBlur={field.onBlur}
+              />
+            );
+          }}
         />
       </Field>
       <Field label={t("wishlist.addItemModal.currency")} className="w-28">

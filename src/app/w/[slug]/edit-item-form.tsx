@@ -58,7 +58,7 @@ export function EditItemForm({ item, onSuccess }: { item: PublicItem; onSuccess:
             "clear it," not "leave it alone." */}
         <Input {...register("notes", { setValueAs: (v: string) => (v === "" ? null : v) })} />
       </Field>
-      <PriceFields register={register} control={control} errors={errors} />
+      <PriceFields control={control} errors={errors} />
       <p className="text-xs text-muted-foreground">{t("wishlist.editItemModal.priceHint")}</p>
       {errors.root?.message && (
         <p className="text-sm text-destructive" role="alert">

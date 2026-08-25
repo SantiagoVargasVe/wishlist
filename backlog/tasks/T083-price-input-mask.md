@@ -2,7 +2,7 @@
 id: T083
 title: Price input — thousands-separator masking while typing
 epic: E9-post-mvp-ui
-status: todo
+status: done
 depends_on: [T053]
 size: S
 ---
@@ -39,16 +39,30 @@ with what `formatMoney` will later render on the card.
 
 ## Acceptance criteria
 
-- [ ] Typing digits into the price field displays thousands separators live, matching the
+- [x] Typing digits into the price field displays thousands separators live, matching the
       currently-selected currency's convention (COP vs. USD)
-- [ ] The value actually registered with react-hook-form / submitted to the API remains the raw
+- [x] The value actually registered with react-hook-form / submitted to the API remains the raw
       numeric string `priceAmountSchema` expects — no separators, no currency symbol
-- [ ] Switching the currency selector updates the displayed formatting of an already-entered
+- [x] Switching the currency selector updates the displayed formatting of an already-entered
       amount to match the new currency's convention
-- [ ] Pasting a pre-formatted number (e.g. `1,300,000` or `1.300.000`) is handled sensibly rather
-      than rejected outright
-- [ ] Tests: typed input displays separators, submitted value is the raw digit string, currency
+- [x] Pasting a pre-formatted number (e.g. `1,300,000` or `1.300.000`) is handled sensibly — see
+      Design decisions above for the one narrow, accepted exception (a full USD-formatted paste
+      with a decimal point while COP is selected, and vice versa: genuinely ambiguous, not solved)
+- [x] Tests: typed input displays separators, submitted value is the raw digit string, currency
       switch reformats an existing value, decimal amounts (`.50`) still work
+
+## Implementation notes
+
+Ended up hand-rolled (`formatAmountInput`/`parseAmountInput` in `src/lib/money.ts`), no new
+dependency — matches the existing `formatMoney` precedent closely enough that a library wasn't
+worth it. `PriceFields`' `priceAmount` field moved from `register()` to `Controller`, since display
+(formatted) and stored (raw) values now genuinely differ — `register()` binds the DOM value
+directly, which can't represent that split. `register` was dropped from `PriceFields`' props
+entirely (only `priceCurrency` and now `priceAmount` need `Controller`); both call sites
+(`add-item-form.tsx`, `edit-item-form.tsx`) updated to stop passing it.
+
+Live-verified: typing `1300000` with COP selected displays `1.300.000`; switching to USD
+live-reformats the same value to `1,300,000`.
 
 ## Out of scope
 
