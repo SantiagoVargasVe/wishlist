@@ -2,7 +2,7 @@
 id: T088
 title: Stop treating a bot-wall or error page as a successful scrape
 epic: E10-preview-reliability
-status: todo
+status: done
 depends_on: [T030, T032]
 size: S
 ---

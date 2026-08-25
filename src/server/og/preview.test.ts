@@ -137,6 +137,66 @@ describe.skipIf(!hasTestDatabase)("getPreview", () => {
     expect(rows).toHaveLength(0);
   });
 
+  // T088. The shape that caused this: a CDN bot-manager challenge answers 200
+  // with a real HTML body, so nothing throws and nothing parses. Caching that
+  // as "ok" served an empty form for a week with no way to retry.
+  it("does not cache a scrape that parsed cleanly but found nothing", async () => {
+    vi.mocked(safeFetch).mockResolvedValue(HTML_RESPONSE);
+    vi.mocked(parseProductMetadata).mockReturnValue({
+      ...EMPTY_PARSED,
+      siteName: "www.example.com",
+    });
+
+    const result = await getPreview("https://example.com/challenge", ctx.db);
+
+    expect(result.ogStatus).toBe("ok");
+    expect(result.title).toBeNull();
+    expect(result.imageUrl).toBeNull();
+
+    // siteName alone must not qualify — it falls back to the hostname, so it
+    // is non-null even when the parse found absolutely nothing.
+    expect(result.siteName).toBe("www.example.com");
+    const rows = await ctx.db.select().from(ogCache);
+    expect(rows).toHaveLength(0);
+  });
+
+  it("re-fetches on the next request after an empty scrape, rather than serving a cached blank", async () => {
+    vi.mocked(safeFetch).mockResolvedValue(HTML_RESPONSE);
+    vi.mocked(parseProductMetadata).mockReturnValue({ ...EMPTY_PARSED });
+    await getPreview("https://example.com/retry", ctx.db);
+
+    // Whatever was blocking the first attempt is fixed — a new User-Agent, a
+    // parser change. The retry must actually go out, not hit a cached blank.
+    vi.mocked(parseProductMetadata).mockReturnValue({ ...EMPTY_PARSED, title: "Now Works" });
+    const second = await getPreview("https://example.com/retry", ctx.db);
+
+    expect(safeFetch).toHaveBeenCalledTimes(2);
+    expect(second.title).toBe("Now Works");
+  });
+
+  it("caches a page that has a title but no image", async () => {
+    vi.mocked(safeFetch).mockResolvedValue(HTML_RESPONSE);
+    vi.mocked(parseProductMetadata).mockReturnValue({ ...EMPTY_PARSED, title: "Imageless Product" });
+
+    await getPreview("https://example.com/no-image", ctx.db);
+
+    const rows = await ctx.db.select().from(ogCache);
+    expect(rows).toHaveLength(1);
+  });
+
+  it("caches a page that has an image but no title", async () => {
+    vi.mocked(safeFetch).mockResolvedValue(HTML_RESPONSE);
+    vi.mocked(parseProductMetadata).mockReturnValue({
+      ...EMPTY_PARSED,
+      imageUrl: "https://cdn.example/only.jpg",
+    });
+
+    await getPreview("https://example.com/no-title", ctx.db);
+
+    const rows = await ctx.db.select().from(ogCache);
+    expect(rows).toHaveLength(1);
+  });
+
   it("drops a parsed price whose currency isn't COP or USD", async () => {
     vi.mocked(safeFetch).mockResolvedValue(HTML_RESPONSE);
     vi.mocked(parseProductMetadata).mockReturnValue({

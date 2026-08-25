@@ -125,7 +125,29 @@ async function scrape(url: string): Promise<PreviewResult> {
   };
 }
 
-/** `POST /api/preview`. Cache hit skips the fetch entirely; only a successful scrape is ever cached. */
+/**
+ * `ogStatus: "ok"` only means nothing threw — a page can parse cleanly and
+ * still yield nothing usable. The case that matters is a CDN bot-manager
+ * challenge: it returns HTTP 200 with a genuine HTML body, so it survives both
+ * safeFetch's status check and the parser, and would be cached as a successful
+ * scrape for `OG_CACHE_TTL_HOURS` — a week of every visitor getting an empty
+ * form for that URL, with no way to retry.
+ *
+ * `siteName` is deliberately not evidence: it falls back to the hostname, so
+ * it is non-null even for a completely empty parse. A title *or* an image is
+ * the bar. A real page with a title but no image is still worth caching.
+ */
+function isWorthCaching(result: PreviewResult): boolean {
+  return result.ogStatus === "ok" && (result.title !== null || result.imageUrl !== null);
+}
+
+/**
+ * `POST /api/preview`. Cache hit skips the fetch entirely, so anything written
+ * here is served unconditionally until it expires — which is why a scrape that
+ * found nothing must not be written at all. Not caching failures is also what
+ * lets a fix (a new User-Agent, a parser change) take effect on the very next
+ * request instead of a week later.
+ */
 export async function getPreview(url: string, db: Db = getDb()): Promise<PreviewResult> {
   const normalized = normalizeUrl(url);
   const urlHash = hashUrl(normalized);
@@ -134,7 +156,7 @@ export async function getPreview(url: string, db: Db = getDb()): Promise<Preview
   if (cached) return cached;
 
   const result = await scrape(url);
-  if (result.ogStatus === "ok") await writeCache(urlHash, result, db);
+  if (isWorthCaching(result)) await writeCache(urlHash, result, db);
 
   return result;
 }

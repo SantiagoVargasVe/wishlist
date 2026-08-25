@@ -160,6 +160,81 @@ describe("safeFetch — redirects", () => {
   });
 });
 
+// T088. Found in production: a retailer's 403 is served as real `text/html`,
+// so it passed the content-type check, parsed to `title: "Access Denied"`, and
+// was cached as a successful scrape for a week.
+describe("safeFetch — error statuses", () => {
+  function statusResponse(statusCode: number) {
+    return {
+      statusCode,
+      headers: { "content-type": "text/html" },
+      body: (async function* () {
+        yield Buffer.from("<html><title>Access Denied</title></html>");
+      })(),
+    };
+  }
+
+  it.each([400, 403, 404, 429, 500, 503])(
+    "rejects a %i response even though its body is valid HTML",
+    async (status) => {
+      await expect(
+        safeFetch("https://example.com/", baseOptions, {
+          resolveHost: vi.fn().mockResolvedValue([PUBLIC]),
+          transport: vi.fn().mockResolvedValue(statusResponse(status)),
+        }),
+      ).rejects.toBeInstanceOf(SafeFetchError);
+    },
+  );
+
+  it("does not leak the upstream status to the caller", async () => {
+    expect.assertions(2);
+    try {
+      await safeFetch("https://example.com/", baseOptions, {
+        resolveHost: vi.fn().mockResolvedValue([PUBLIC]),
+        transport: vi.fn().mockResolvedValue(statusResponse(403)),
+      });
+    } catch (error) {
+      expect((error as SafeFetchError).message).toBe("Unable to fetch the requested URL");
+      expect((error as SafeFetchError).message).not.toContain("403");
+    }
+  });
+
+  it("still accepts a 2xx that isn't exactly 200", async () => {
+    const result = await safeFetch("https://example.com/", baseOptions, {
+      resolveHost: vi.fn().mockResolvedValue([PUBLIC]),
+      transport: vi.fn().mockResolvedValue({ ...htmlResponse("<title>Ok</title>"), statusCode: 203 }),
+    });
+
+    expect(result.body.toString()).toBe("<title>Ok</title>");
+  });
+
+  // The status check sits after the redirect branch precisely so this keeps
+  // working — a 3xx carrying a `location` is a redirect, not an error.
+  it("still follows a redirect rather than rejecting it as a non-2xx", async () => {
+    const transport = vi
+      .fn()
+      .mockResolvedValueOnce(redirectResponse("https://example.com/final"))
+      .mockResolvedValueOnce(htmlResponse("<title>Arrived</title>"));
+
+    const result = await safeFetch("https://example.com/", baseOptions, {
+      resolveHost: vi.fn().mockResolvedValue([PUBLIC]),
+      transport,
+    });
+
+    expect(result.finalUrl).toBe("https://example.com/final");
+    expect(result.body.toString()).toBe("<title>Arrived</title>");
+  });
+
+  it("rejects a 3xx with no location header — that's broken, not a redirect", async () => {
+    await expect(
+      safeFetch("https://example.com/", baseOptions, {
+        resolveHost: vi.fn().mockResolvedValue([PUBLIC]),
+        transport: vi.fn().mockResolvedValue({ statusCode: 302, headers: {}, body: (async function* () {})() }),
+      }),
+    ).rejects.toBeInstanceOf(SafeFetchError);
+  });
+});
+
 describe("safeFetch — response limits", () => {
   it("rejects a response over the size limit", async () => {
     const bigBody = {
