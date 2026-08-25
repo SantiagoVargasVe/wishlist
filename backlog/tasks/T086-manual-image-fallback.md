@@ -4,7 +4,7 @@ title: Let the user supply an item image URL when the scrape finds none
 epic: E10-preview-reliability
 status: todo
 depends_on: [T033, T053, T054]
-size: M
+size: L
 ---
 
 ## Context
@@ -19,6 +19,14 @@ server-side fetch (Adidas, H&M — blocked regardless of User-Agent), some publi
 at all, and some lazy-load every `<img>` behind a placeholder so there is nothing to harvest.
 This task stops trying to win that fight and gives the user an escape hatch that works
 **everywhere**, independent of any scraping improvement.
+
+**This is what the commercial products do too.** wishlist.com was probed on 2026-08-25 by giving
+it a URL that logs its fetches: it requested the page from a datacenter IP with a spoofed
+Microsoft Edge User-Agent, no residential proxy and no unblocking vendor. Replaying that exact
+fingerprint against Zara returns the bot-wall challenge, not the page — so a funded product with
+the same problem cannot preview these sites either, and its fallback is an image box reading
+*"Click, or drag your image here."* There is no clever technique being missed here; a manual
+image path **is** the state of the art for walled sites.
 
 Two facts make this much cheaper than it looks, both verified rather than assumed:
 
@@ -67,6 +75,30 @@ user-supplied URL and gets no exemption.
       catch-up is the established pattern for making the new image appear; reuse it rather than
       awaiting the download
 
+**Upload a file**
+
+Pasting a URL is awkward on a phone, which is where a lot of adding happens. wishlist.com — a
+funded commercial product with the same problem — falls back to exactly this: an image box
+reading *"Click, or drag your image here."* On mobile the natural gesture is long-press → save
+image → upload, not copying an image address.
+
+- [ ] The user can upload an image file (click or drag) anywhere the manual image URL is offered
+- [ ] Accepted only if it really is an image: **sniff the content, never trust the client's
+      `Content-Type` or the file extension**. Letting `sharp` reject a non-image is a legitimate
+      way to do this — decoding is the check
+- [ ] Size capped before decode, reusing `OG_MAX_IMAGE_BYTES` rather than inventing a new limit.
+      A huge upload is rejected, not streamed to disk and then rejected
+- [ ] Goes through the **same** `sharp` → resize → webp → `writeAtomic` path as a downloaded
+      image, so stored files stay uniform (`{itemId}.webp`) and `/media/:filename`'s existing
+      pattern check keeps holding
+- [ ] The stored filename is derived from the item id — **never from the uploaded filename**.
+      security.md: never join user input onto a filesystem path
+- [ ] Upload is authenticated and owner-checked like every other item write — an upload endpoint
+      is a write surface, not a public convenience
+- [ ] Tests: a valid upload replaces the image, a non-image file is rejected cleanly, an
+      oversized file is rejected, and a disguised file (image extension, non-image bytes) is
+      rejected
+
 **Both**
 
 - [ ] The image URL is fetched through `safeFetch` exactly as a scraped one is — no new fetch
@@ -83,10 +115,6 @@ user-supplied URL and gets no exemption.
 
 ## Out of scope
 
-- **File upload / drag-and-drop.** Deliberately excluded: it needs multipart handling, size and
-  content-type sniffing, and a new write surface, none of which the paste-a-URL path requires —
-  and it would not have shipped in the same review. Worth a follow-up task if pasting a URL
-  proves too fiddly in practice.
 - Changing how HTML is fetched (User-Agent, bot walls, headless rendering). Undecided and
   tracked separately; this task is deliberately independent of it.
 - Parser changes — see [T085](T085-jsonld-productgroup.md).

@@ -158,8 +158,8 @@ hand. Investigated 2026-08-25; the causes turned out to be three unrelated thing
 
 - `T085` Parse schema.org `ProductGroup`, not just `Product` — recovers prices we already have
   in the HTML and silently drop
-- `T086` Let the user supply an image URL when the scrape finds none — the only fix that works
-  on *every* site, including ones we can't fetch at all
+- `T086` Let the user supply an image — paste a URL or upload a file — when the scrape finds
+  none. The only fix that works on *every* site, including ones we can't fetch at all
 
 **Known and deliberately not tasked yet: the bot wall.** Several retailers serve their real HTML
 only to a narrow allowlist of link-preview crawlers, decided purely on `User-Agent` at the CDN
@@ -185,3 +185,18 @@ Two things follow, and both matter for anyone picking up T085 or T086:
 - Getting past it means claiming to be someone else's crawler, which is a judgement call about
   this deployment and its operator's risk appetite, not a technical one — so it stays an open
   decision rather than a task. T086 is the deliberate way around needing that decision at all.
+
+Two things that look like solutions and are not, both checked rather than assumed:
+
+- **TLS fingerprinting is irrelevant here.** A real Chrome-124 TLS fingerprint (via `curl_cffi`)
+  still gets the challenge; a WhatsApp UA over plain curl TLS gets the page. Only the
+  User-Agent moves the needle. And the challenge is genuine JavaScript, so no HTTP client passes
+  it however well disguised — that takes a browser engine.
+- **Paid unblocking services aren't the industry's answer at this scale.** Probing a funded
+  commercial competitor showed it fetching from a datacenter IP with a spoofed Edge User-Agent —
+  no residential proxy, no vendor. Replaying that fingerprint against Zara returns the challenge,
+  so it can't preview these sites either. Meanwhile the services themselves start around $49/mo
+  (Bright Data's unlocker, ~$499/mo), and Microlink's free tier returns `EPROXYNEEDED` on Zara
+  specifically. Routing every pasted URL through a third party would also tell that vendor what
+  the family is buying — against the grain of
+  [ADR-0004](../docs/adr/0004-store-images.md)'s reason for storing images locally.
