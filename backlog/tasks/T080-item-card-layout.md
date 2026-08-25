@@ -2,7 +2,7 @@
 id: T080
 title: Item card — fixed height, contained images, visible currency
 epic: E9-post-mvp-ui
-status: todo
+status: done
 depends_on: [T051]
 size: S
 ---
@@ -49,13 +49,20 @@ already pair it with their own currency label.
 
 ## Acceptance criteria
 
-- [ ] Every card in the grid renders at the same height regardless of title length or whether a
+- [x] Every card in the grid renders at the same height regardless of title length or whether a
       price is present
-- [ ] A non-square image is fully visible (`object-contain`), not cropped
-- [ ] The price line shows the ISO currency code alongside the amount (e.g. `$135.000,00 COP`)
-- [ ] A very long title still truncates sensibly (`line-clamp-2` or equivalent) rather than
+- [x] A non-square image is fully visible (`object-contain`), not cropped
+- [x] The price line shows the ISO currency code alongside the amount (e.g. `$135.000,00 COP`)
+- [x] A very long title still truncates sensibly (`line-clamp-2` or equivalent) rather than
       breaking the fixed height
-- [ ] No visual regression for the "no image" placeholder state
+- [x] No visual regression for the "no image" placeholder state
+
+## Verification
+
+Live-verified in a browser against a real dev server + seeded data: three items (a long two-line
+title with a COP price, a short title with a USD price, and a title with neither price nor image)
+all render at the identical card height, with `$1.300.000,00 COP` and `$49.99 USD` clearly
+distinguishable side by side.
 
 ## Out of scope
 
