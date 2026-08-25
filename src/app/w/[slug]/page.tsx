@@ -19,21 +19,31 @@ type Props = { params: Promise<{ slug: string }> };
  * decisions. `images` is only set when a live item actually has one; when
  * it's omitted, Next falls through to `opengraph-image.tsx`'s generated
  * card on its own.
+ *
+ * `metadataBase` lives here, not the root layout — every branch below
+ * reaches it, but the root layout is imported by genuinely static routes
+ * too (`/login`, `/_not-found`), and `next build`'s page-data collection
+ * evaluates their metadata with no env available (the quality CI job runs
+ * with no secrets, deliberately — see testing.md § CI). This whole route
+ * is already dynamic (reads cookies via `currentUserId()`), so `config` is
+ * only ever touched per real request, never during that build-time pass.
  */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
+  const metadataBase = new URL(config.APP_URL);
 
   const owned = (await findOwnedWishlists())?.find((w) => w.slug === slug);
-  if (owned) return { title: owned.title };
+  if (owned) return { metadataBase, title: owned.title };
 
   const publicWishlist = await findPublicWishlist(slug);
-  if (!publicWishlist) return { title: t("common.appName") };
+  if (!publicWishlist) return { metadataBase, title: t("common.appName") };
 
   const title = shareTitle(publicWishlist);
   const description = shareDescription(publicWishlist.items.length);
   const imageUrl = ogImageUrl(publicWishlist.items, config.APP_URL);
 
   return {
+    metadataBase,
     title,
     description,
     openGraph: {
