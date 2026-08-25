@@ -103,5 +103,36 @@ export const es = {
         generic: "No se pudo eliminar el artículo. Intenta de nuevo.",
       },
     },
+    createWishlist: "Nueva lista",
+    createWishlistModal: {
+      title: "Crear lista",
+      titleLabel: "Nombre de la lista",
+      submit: "Crear",
+      submitting: "Creando…",
+      errors: {
+        generic: "No se pudo crear la lista. Intenta de nuevo.",
+      },
+    },
+    renameWishlist: "Renombrar",
+    renameWishlistModal: {
+      title: "Renombrar lista",
+      submit: "Guardar",
+      submitting: "Guardando…",
+      errors: {
+        generic: "No se pudo renombrar la lista. Intenta de nuevo.",
+      },
+    },
+    deleteWishlist: "Eliminar lista",
+    deleteWishlistDialog: {
+      title: "¿Eliminar esta lista?",
+      description: "Se eliminará la lista \"{title}\". Esta acción no se puede deshacer.",
+      confirm: "Eliminar",
+      orphansWarning:
+        "Estos artículos no están en ninguna otra lista — eliminar la lista también los eliminará a ellos:",
+      confirmOrphans: "Eliminar de todos modos",
+      errors: {
+        generic: "No se pudo eliminar la lista. Intenta de nuevo.",
+      },
+    },
   },
 } as const;
