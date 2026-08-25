@@ -65,7 +65,7 @@ export function AddItemForm({
             empty string. */}
         <Input {...register("notes", { setValueAs: (v: string) => (v === "" ? undefined : v) })} />
       </Field>
-      <PriceFields register={register} control={control} errors={errors} />
+      <PriceFields control={control} errors={errors} />
       <WishlistCheckboxList
         wishlists={wishlists}
         control={control}
