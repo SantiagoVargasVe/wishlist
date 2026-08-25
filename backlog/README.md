@@ -67,7 +67,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 | **E7** deploy | Dockerfile, CI image build, pull-timer deploy, WAF rules | T060–T064 |
 | **E8** invites | Self-service invite minting | T070 |
 | **E9** post-mvp-ui | Card layout, image-after-add race, form UX gating, price masking, multi-select lists | T080–T084 |
-| **E10** preview-reliability | Why pasted links so often yield no image, and what to do about it | T085–T086 |
+| **E10** preview-reliability | Why pasted links so often yield no image, and what to do about it | T085–T087 |
 
 ## Task index
 
@@ -160,10 +160,12 @@ hand. Investigated 2026-08-25; the causes turned out to be three unrelated thing
   in the HTML and silently drop
 - `T086` Let the user supply an image — paste a URL or upload a file — when the scrape finds
   none. The only fix that works on *every* site, including ones we can't fetch at all
+- `T087` Send a link-preview `User-Agent` so walled retailers respond — **done**, see
+  [ADR-0010](../docs/adr/0010-preview-user-agent.md)
 
-**Known and deliberately not tasked yet: the bot wall.** Several retailers serve their real HTML
-only to a narrow allowlist of link-preview crawlers, decided purely on `User-Agent` at the CDN
-edge, before the request reaches their origin:
+**The bot wall — resolved by T087, but read this before touching it.** Several retailers serve
+their real HTML only to a narrow allowlist of link-preview crawlers, decided purely on
+`User-Agent` at the CDN edge, before the request reaches their origin:
 
 | What we send | What comes back |
 |---|---|
@@ -174,17 +176,21 @@ edge, before the request reaches their origin:
 Measured across Zara, Bershka, Pull&Bear, Stradivarius, Massimo Dutti and Éxito — all identical.
 `facebookexternalhit`, `Twitterbot`, `Slackbot`, `Discordbot`, `TelegramBot`, `LinkedInBot` and
 `Applebot` are all refused too, so there is **no honest self-identifying User-Agent that works**.
-Adidas and H&M refuse every UA including WhatsApp's. Amazon and MercadoLibre are unaffected.
+H&M and Uniqlo refuse every UA including WhatsApp's, and Adidas returns a stub to all of them.
+Amazon, MercadoLibre, Falabella, Shein and Nike are unaffected either way.
 
-Two things follow, and both matter for anyone picking up T085 or T086:
+Two things follow, and both still matter:
 
 - The middle row is a trap. A browser-like UA returns HTTP 200 and parses without error, so it
   reads as success while carrying no metadata at all — and `getPreview()` would cache that as
-  `ogStatus: "ok"` for `OG_CACHE_TTL_HOURS` (7 days). Do not "fix" the bot wall by sending a
-  browser UA.
-- Getting past it means claiming to be someone else's crawler, which is a judgement call about
-  this deployment and its operator's risk appetite, not a technical one — so it stays an open
-  decision rather than a task. T086 is the deliberate way around needing that decision at all.
+  `ogStatus: "ok"` for `OG_CACHE_TTL_HOURS` (7 days). Never "fix" a bot wall by sending a
+  browser UA; it is worse than sending nothing.
+- Getting past it means claiming to be someone else's crawler — a judgement call about this
+  deployment, not a technical one. T087 made that call for a family-scale self-hosted install
+  and [ADR-0010](../docs/adr/0010-preview-user-agent.md) states the tradeoff plainly, including
+  why it is **not** a recommendation at scale. `OG_USER_AGENT=WishlistBot/1.0` opts back out.
+- T087 does **not** make T086 redundant. H&M and Uniqlo refuse every UA tried, so a manual image
+  path stays the only universal answer.
 
 Two things that look like solutions and are not, both checked rather than assumed:
 
