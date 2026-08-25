@@ -425,3 +425,236 @@ describe("parseProductMetadata — sanitization", () => {
     expect(result.title).toBe("WeirdTitleHere");
   });
 });
+
+// T085. Retailers routinely publish one `ProductGroup` for the garment with a
+// `hasVariant` array of `Product`s beneath it, one per size/colour. Matching
+// only `Product` walked past a price sitting in the HTML.
+describe("parseProductMetadata — schema.org ProductGroup", () => {
+  const variant = (price: string, availability: string, size: string) => ({
+    "@type": "Product",
+    name: `Jeans - ${size}`,
+    size,
+    offers: {
+      "@type": "Offer",
+      priceCurrency: "USD",
+      price,
+      availability: `https://schema.org/${availability}`,
+    },
+  });
+
+  it("reads name, description and image off the group itself", () => {
+    const result = parseProductMetadata(
+      html(
+        jsonLd({
+          "@type": "ProductGroup",
+          name: "Mom Fit Jeans",
+          description: "High waist, regular length.",
+          image: ["https://cdn.example/jeans.jpg"],
+        }),
+      ),
+      PAGE_URL,
+    );
+
+    expect(result.title).toBe("Mom Fit Jeans");
+    expect(result.description).toBe("High waist, regular length.");
+    expect(result.imageUrl).toBe("https://cdn.example/jeans.jpg");
+  });
+
+  it("prefers the cheapest IN-STOCK variant, not the first one listed", () => {
+    const result = parseProductMetadata(
+      html(
+        jsonLd({
+          "@type": "ProductGroup",
+          name: "Jeans",
+          hasVariant: [
+            variant("9.98", "OutOfStock", "25"), // cheapest overall, but unbuyable
+            variant("49.90", "InStock", "27"),
+            variant("39.90", "InStock", "26"),
+            variant("19.90", "OutOfStock", "28"),
+          ],
+        }),
+      ),
+      PAGE_URL,
+    );
+
+    expect(result.priceAmount).toBe("39.90");
+    expect(result.priceCurrency).toBe("USD");
+  });
+
+  it("falls back to the cheapest overall when no variant is in stock", () => {
+    const result = parseProductMetadata(
+      html(
+        jsonLd({
+          "@type": "ProductGroup",
+          name: "Jeans",
+          hasVariant: [variant("29.90", "OutOfStock", "25"), variant("19.90", "OutOfStock", "26")],
+        }),
+      ),
+      PAGE_URL,
+    );
+
+    expect(result.priceAmount).toBe("19.90");
+  });
+
+  it("accepts a bare availability token as well as a schema.org URL", () => {
+    const result = parseProductMetadata(
+      html(
+        jsonLd({
+          "@type": "ProductGroup",
+          hasVariant: [
+            { "@type": "Product", offers: { price: "50.00", priceCurrency: "USD", availability: "InStock" } },
+            { "@type": "Product", offers: { price: "10.00", priceCurrency: "USD", availability: "OutOfStock" } },
+          ],
+        }),
+      ),
+      PAGE_URL,
+    );
+
+    expect(result.priceAmount).toBe("50.00");
+  });
+
+  it("uses the group's own offers when it has them, without consulting variants", () => {
+    const result = parseProductMetadata(
+      html(
+        jsonLd({
+          "@type": "ProductGroup",
+          offers: { "@type": "Offer", price: "99.00", priceCurrency: "USD" },
+          hasVariant: [variant("10.00", "InStock", "25")],
+        }),
+      ),
+      PAGE_URL,
+    );
+
+    expect(result.priceAmount).toBe("99.00");
+  });
+
+  it("finds a ProductGroup nested in @graph", () => {
+    const result = parseProductMetadata(
+      html(
+        jsonLd({
+          "@context": "https://schema.org",
+          "@graph": [
+            { "@type": "BreadcrumbList" },
+            { "@type": "ProductGroup", name: "Graph Jeans", hasVariant: [variant("25.00", "InStock", "25")] },
+          ],
+        }),
+      ),
+      PAGE_URL,
+    );
+
+    expect(result.title).toBe("Graph Jeans");
+    expect(result.priceAmount).toBe("25.00");
+  });
+
+  it("matches the array form of @type", () => {
+    const result = parseProductMetadata(
+      html(jsonLd({ "@type": ["Thing", "ProductGroup"], name: "Array Typed" })),
+      PAGE_URL,
+    );
+
+    expect(result.title).toBe("Array Typed");
+  });
+
+  it.each([
+    ["hasVariant that isn't an array", { "@type": "ProductGroup", hasVariant: "nope" }],
+    ["an empty hasVariant", { "@type": "ProductGroup", hasVariant: [] }],
+    ["variants that aren't objects", { "@type": "ProductGroup", hasVariant: [null, 42, "x"] }],
+    ["variants with no offers", { "@type": "ProductGroup", hasVariant: [{ "@type": "Product" }] }],
+    [
+      "offers with no price",
+      { "@type": "ProductGroup", hasVariant: [{ "@type": "Product", offers: { priceCurrency: "USD" } }] },
+    ],
+    [
+      "a non-numeric price",
+      {
+        "@type": "ProductGroup",
+        hasVariant: [{ "@type": "Product", offers: { price: "ask us", priceCurrency: "USD" } }],
+      },
+    ],
+  ])("resolves price to null for %s, rather than throwing", (_label, node) => {
+    const result = parseProductMetadata(html(jsonLd(node)), PAGE_URL);
+    expect(result.priceAmount).toBeNull();
+    expect(result.priceCurrency).toBeNull();
+  });
+
+  it("still lets og tags outrank the group — precedence is unchanged", () => {
+    const result = parseProductMetadata(
+      html(
+        `<meta property="og:title" content="OG Wins">` +
+          `<meta property="og:image" content="https://cdn.example/og.jpg">` +
+          jsonLd({
+            "@type": "ProductGroup",
+            name: "JSON-LD Loses",
+            image: ["https://cdn.example/jsonld.jpg"],
+          }),
+      ),
+      PAGE_URL,
+    );
+
+    expect(result.title).toBe("OG Wins");
+    expect(result.imageUrl).toBe("https://cdn.example/og.jpg");
+  });
+
+  // The exact shape from a real Zara product page, captured 2026-08-25: all
+  // eight size variants priced 9.98 USD and every one of them OutOfStock, so
+  // this exercises the no-stock fallback on real data rather than a fixture
+  // invented to match the code.
+  it("extracts the price from the real Zara ProductGroup shape", () => {
+    const sizes = ["25 (US 0)", "26 (US 2)", "27 (US 4)", "28 (US 6)"];
+    const result = parseProductMetadata(
+      html(
+        jsonLd({
+          "@context": "https://schema.org/",
+          "@type": "ProductGroup",
+          name: "HIGH-WAISTED TRF MOM FIT JEANS",
+          productGroupID: "02569047",
+          brand: { "@type": "Brand", name: "ZARA" },
+          variesBy: ["https://schema.org/size", "https://schema.org/color"],
+          image: ["https://static.zara.net/assets/public/03607047250-p.jpg?ts=1753280029623&w=1920"],
+          hasVariant: sizes.map((size) => ({
+            "@type": "Product",
+            name: `HIGH-WAISTED TRF MOM FIT JEANS - White - ${size}`,
+            sku: "545042665-250-32",
+            color: "White",
+            size,
+            image: ["https://static.zara.net/assets/public/03607047250-p.jpg?ts=1753280029623&w=1920"],
+            offers: {
+              "@type": "Offer",
+              priceCurrency: "USD",
+              price: "9.98",
+              itemCondition: "https://schema.org/NewCondition",
+              availability: "https://schema.org/OutOfStock",
+            },
+          })),
+        }),
+      ),
+      PAGE_URL,
+    );
+
+    expect(result.title).toBe("HIGH-WAISTED TRF MOM FIT JEANS");
+    expect(result.priceAmount).toBe("9.98");
+    expect(result.priceCurrency).toBe("USD");
+  });
+});
+
+describe("parseProductMetadata — plain Product is unaffected by ProductGroup support", () => {
+  it("still takes the first offer from a Product's own offers array", () => {
+    const result = parseProductMetadata(
+      html(
+        jsonLd({
+          "@type": "Product",
+          name: "Widget",
+          offers: [
+            { "@type": "Offer", price: "20.00", priceCurrency: "USD" },
+            { "@type": "Offer", price: "5.00", priceCurrency: "USD" },
+          ],
+        }),
+      ),
+      PAGE_URL,
+    );
+
+    // Deliberately NOT the cheapest — the in-stock/cheapest rule applies only
+    // when descending into a ProductGroup's variants.
+    expect(result.priceAmount).toBe("20.00");
+  });
+});

@@ -30,6 +30,8 @@ type JsonLdOffer = {
   price?: string | number;
   priceCurrency?: string;
   lowPrice?: string | number;
+  /** Usually a schema.org URL (`https://schema.org/InStock`), sometimes the bare token. */
+  availability?: string;
 };
 
 type JsonLdProduct = {
@@ -37,6 +39,8 @@ type JsonLdProduct = {
   description?: string;
   image?: string | { url?: string } | (string | { url?: string })[];
   offers?: JsonLdOffer | JsonLdOffer[];
+  /** Present on a `ProductGroup`: one `Product` per size/colour, each with its own `offers`. */
+  hasVariant?: JsonLdProduct[];
 };
 
 /**
@@ -74,6 +78,19 @@ function ogMeta($: CheerioAPI, key: string): string | undefined {
   return metaContent($, `meta[property="og:${key}"]`) ?? metaContent($, `meta[name="og:${key}"]`);
 }
 
+/**
+ * `ProductGroup` counts as well as `Product`. Plenty of retailers publish one
+ * node for the garment and a `hasVariant` array of `Product`s beneath it, one
+ * per size/colour — Zara does, and matching only `Product` meant walking past
+ * a title, description, image and price that were all sitting right there.
+ */
+const PRODUCT_TYPES = ["Product", "ProductGroup"];
+
+function isProductType(type: unknown): boolean {
+  if (typeof type === "string") return PRODUCT_TYPES.includes(type);
+  return Array.isArray(type) && type.some((t) => typeof t === "string" && PRODUCT_TYPES.includes(t));
+}
+
 function findProductNode(node: unknown): JsonLdProduct | null {
   if (Array.isArray(node)) {
     for (const item of node) {
@@ -85,17 +102,14 @@ function findProductNode(node: unknown): JsonLdProduct | null {
 
   if (node && typeof node === "object") {
     const obj = node as Record<string, unknown>;
-    const type = obj["@type"];
-    if (type === "Product" || (Array.isArray(type) && type.includes("Product"))) {
-      return obj as JsonLdProduct;
-    }
+    if (isProductType(obj["@type"])) return obj as JsonLdProduct;
     if (Array.isArray(obj["@graph"])) return findProductNode(obj["@graph"]);
   }
 
   return null;
 }
 
-/** First parseable `Product` block across every `ld+json` script — malformed ones are skipped, not fatal. */
+/** First parseable `Product`/`ProductGroup` block across every `ld+json` script — malformed ones are skipped, not fatal. */
 function findJsonLdProduct($: CheerioAPI): JsonLdProduct | null {
   for (const el of $('script[type="application/ld+json"]').toArray()) {
     try {
@@ -116,12 +130,82 @@ function jsonLdImage(product: JsonLdProduct | null): string | undefined {
   return undefined;
 }
 
-function jsonLdPrice(product: JsonLdProduct | null): { amount?: string; currency?: string } {
-  const offers = product?.offers;
-  const offer = Array.isArray(offers) ? offers[0] : offers;
-  if (!offer) return {};
+/** Matches both `https://schema.org/InStock` and a bare `InStock`. */
+const IN_STOCK_PATTERN = /(^|\/)InStock$/i;
+
+type VariantPrice = { amount: string; currency?: string; inStock: boolean; numeric: number };
+
+function offerAmount(offer: JsonLdOffer): { amount?: string; currency?: string } {
   const raw = offer.price ?? offer.lowPrice;
   return { amount: raw === undefined ? undefined : String(raw), currency: offer.priceCurrency };
+}
+
+/**
+ * Every offer across every variant, flattened. Anything malformed — a
+ * `hasVariant` that isn't an array, a non-object entry, an offer with no
+ * price, a price that isn't a finite number — is skipped rather than throwing,
+ * matching the rest of this module: a page we can't read resolves to `null`,
+ * it never fails the preview (root CLAUDE.md non-negotiable #2).
+ */
+function variantPrices(product: JsonLdProduct): VariantPrice[] {
+  const variants = Array.isArray(product.hasVariant) ? product.hasVariant : [];
+  const prices: VariantPrice[] = [];
+
+  for (const variant of variants) {
+    if (!variant || typeof variant !== "object") continue;
+    const offers = variant.offers;
+    const list = Array.isArray(offers) ? offers : offers ? [offers] : [];
+
+    for (const offer of list) {
+      if (!offer || typeof offer !== "object") continue;
+      const { amount, currency } = offerAmount(offer);
+      if (amount === undefined) continue;
+      const numeric = Number(amount);
+      if (!Number.isFinite(numeric)) continue;
+      prices.push({
+        amount,
+        currency,
+        numeric,
+        inStock: IN_STOCK_PATTERN.test(offer.availability ?? ""),
+      });
+    }
+  }
+
+  return prices;
+}
+
+/**
+ * A `ProductGroup` carries no price of its own; each variant does, and they
+ * genuinely differ. On the real Zara page this was built against, the *first*
+ * variant was `OutOfStock` at 9.98 while others differed — so `hasVariant[0]`
+ * would have quoted a price nobody can actually buy.
+ *
+ * Cheapest in-stock variant, falling back to cheapest overall when nothing is
+ * in stock. Cheapest matches the "from $X" a shopper expects on a page with
+ * per-size pricing, and preferring in-stock stops a sold-out clearance size
+ * from setting the headline. Like every other field here it's a prefill
+ * suggestion the user can edit, not a quote.
+ */
+function jsonLdPrice(product: JsonLdProduct | null): { amount?: string; currency?: string } {
+  if (!product) return {};
+
+  // A node's own offers win outright — this is the path every plain `Product`
+  // page takes, and its behaviour is deliberately unchanged.
+  const offers = product.offers;
+  const own = Array.isArray(offers) ? offers[0] : offers;
+  if (own) {
+    const { amount, currency } = offerAmount(own);
+    if (amount !== undefined) return { amount, currency };
+  }
+
+  const prices = variantPrices(product);
+  if (prices.length === 0) return {};
+
+  const inStock = prices.filter((p) => p.inStock);
+  const pool = inStock.length > 0 ? inStock : prices;
+  const cheapest = pool.reduce((best, p) => (p.numeric < best.numeric ? p : best));
+
+  return { amount: cheapest.amount, currency: cheapest.currency };
 }
 
 /**

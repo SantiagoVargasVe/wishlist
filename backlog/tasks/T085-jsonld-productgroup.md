@@ -2,7 +2,7 @@
 id: T085
 title: Parse schema.org ProductGroup, not just Product
 epic: E10-preview-reliability
-status: todo
+status: done
 depends_on: [T031]
 size: S
 ---
