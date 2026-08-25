@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { inviteCodes, users, wishlists } from "../db/schema";
 import { createTestDb, hasTestDatabase, type TestDb } from "../db/test-support";
 import { DomainError } from "../errors";
-import { getUserById, loginUser, registerUser } from "./auth";
+import { createInvite, getUserById, loginUser, registerUser } from "./auth";
 
 const input = {
   email: "alice@example.com",
@@ -306,5 +306,49 @@ describe.skipIf(!hasTestDatabase)("getUserById", () => {
       ctx.db,
     );
     expect(found).toBeNull();
+  });
+});
+
+describe.skipIf(!hasTestDatabase)("createInvite", () => {
+  let ctx: TestDb;
+
+  beforeAll(async () => {
+    ctx = await createTestDb();
+  });
+
+  afterAll(async () => {
+    await ctx?.close();
+  });
+
+  beforeEach(async () => {
+    await ctx.sql`TRUNCATE wishlists, invite_codes, users RESTART IDENTITY CASCADE`;
+    await ctx.db.insert(inviteCodes).values({ code: input.inviteCode });
+  });
+
+  it("mints a code attributed to the minting user, expiring 7 days out", async () => {
+    const { user } = await registerUser(input, ctx.db);
+    const before = Date.now();
+
+    const invite = await createInvite(user.id, ctx.db);
+
+    const [row] = await ctx.db
+      .select()
+      .from(inviteCodes)
+      .where(eq(inviteCodes.code, invite.code));
+    expect(row.createdBy).toBe(user.id);
+    expect(row.usedAt).toBeNull();
+    expect(invite.expiresAt.getTime()).toBeGreaterThan(before + 6 * 24 * 60 * 60 * 1000);
+    expect(invite.expiresAt.getTime()).toBeLessThan(before + 8 * 24 * 60 * 60 * 1000);
+  });
+
+  it("mints a code that registration can actually consume", async () => {
+    const { user } = await registerUser(input, ctx.db);
+    const invite = await createInvite(user.id, ctx.db);
+
+    const second = await registerUser(
+      { ...input, email: "bob@example.com", displayName: "Bob", inviteCode: invite.code },
+      ctx.db,
+    );
+    expect(second.user.email).toBe("bob@example.com");
   });
 });

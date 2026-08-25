@@ -143,6 +143,14 @@ export function useDeleteWishlistMutation() {
   });
 }
 
+/** `expiresAt` is a string here — a `Date` on the server, ISO-serialized over the wire. */
+export function useMintInviteMutation() {
+  return useMutation({
+    mutationFn: () =>
+      apiFetch<{ code: string; expiresAt: string }>("/api/invites", { method: "POST" }),
+  });
+}
+
 export function useUnclaimMutation(slug: string) {
   const queryClient = useQueryClient();
   const key = queryKeys.wishlist(slug);
