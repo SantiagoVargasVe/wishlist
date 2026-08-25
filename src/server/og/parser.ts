@@ -1,6 +1,8 @@
 import * as cheerio from "cheerio";
 import type { CheerioAPI } from "cheerio";
 
+import { resolveVendorImage } from "./vendors";
+
 /**
  * Pure HTML → structured metadata. No fetching (safeFetch, T030), no
  * caching, no endpoint (T032) — a `cheerio.load(html)` in, a plain object
@@ -226,14 +228,21 @@ function extractDescription($: CheerioAPI, product: JsonLdProduct | null): strin
   return clean(raw, MAX_DESCRIPTION_LENGTH);
 }
 
-/** Not every site emits an absolute image URL despite the spec asking for one. */
+/**
+ * Not every site emits an absolute image URL despite the spec asking for one.
+ * `resolveVendorImage` is the lowest-precedence source — some pages (Amazon,
+ * see T035) expose no standard image tag at all, only a vendor-proprietary
+ * one; any standard tag a site does provide still wins outright.
+ */
 function extractImageUrl($: CheerioAPI, product: JsonLdProduct | null, pageUrl: string): string | null {
   const raw =
     ogMeta($, "image:secure_url") ??
     ogMeta($, "image") ??
     metaContent($, 'meta[name="twitter:image"]') ??
     metaContent($, 'meta[name="twitter:image:src"]') ??
-    jsonLdImage(product);
+    jsonLdImage(product) ??
+    resolveVendorImage($, pageUrl) ??
+    undefined;
   if (!raw) return null;
 
   try {

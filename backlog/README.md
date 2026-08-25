@@ -61,7 +61,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 | **E1** foundation | Next.js app, Docker, Drizzle, Base UI + data layer | T001–T004 |
 | **E2** auth | Invite codes, register/login, JWT cookie, auth pages | T010–T014 |
 | **E3** core-domain | Wishlist + item schema, CRUD, aggregate read | T020–T025 |
-| **E4** og | SSRF-safe fetch, parser, preview endpoint, image pipeline | T030–T034 |
+| **E4** og | SSRF-safe fetch, parser, preview endpoint, image pipeline | T030–T035 |
 | **E5** claims | Claim schema, endpoints, tokens, rate limits, owner filtering | T040–T043 |
 | **E6** frontend | Shell, list page, modals, filters, share CTA, OG metadata | T050–T058 |
 | **E7** deploy | Dockerfile, CI image build, pull-timer deploy, WAF rules | T060–T064 |
@@ -96,6 +96,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 - `T032` `POST /api/preview` + `og_cache` — **done**
 - `T033` Image download → sharp → `data/images/` + `/media/:filename` — **done**
 - `T034` Weekly orphan image sweep — **done**
+- `T035` Vendor-specific image extraction (Amazon) — **done**
 
 **E5 — Claims**
 - `T040` Schema + claim/unclaim endpoints, unique constraint, 409 on race — **done**
