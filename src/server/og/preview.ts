@@ -88,7 +88,10 @@ async function scrape(url: string): Promise<PreviewResult> {
     url,
     config.MELI_CLIENT_ID,
     config.MELI_CLIENT_SECRET,
-  ).catch(() => null);
+  ).catch((error: unknown) => {
+    console.error(`resolveMercadoLibrePreview threw for ${url}:`, error);
+    return null;
+  });
   if (meli) return meli;
 
   let html: string;

@@ -53,7 +53,10 @@ async function fetchPrice(
 ): Promise<{ price: string | null; currency: string | null }> {
   try {
     const response = await fetchImpl(`${API_BASE}/products/${productId}/items`, { headers });
-    if (!response.ok) return { price: null, currency: null };
+    if (!response.ok) {
+      console.error(`MercadoLibre /products/${productId}/items: HTTP ${response.status}`);
+      return { price: null, currency: null };
+    }
 
     const data = (await response.json()) as MeliItemsResponse;
     const first = data.results?.[0];
@@ -61,7 +64,8 @@ async function fetchPrice(
     if (!SUPPORTED_CURRENCIES.has(first.currency_id)) return { price: null, currency: null };
 
     return { price: String(first.price), currency: first.currency_id };
-  } catch {
+  } catch (error) {
+    console.error(`MercadoLibre price lookup failed for ${productId}:`, error);
     return { price: null, currency: null };
   }
 }
@@ -102,7 +106,12 @@ export async function resolveMercadoLibrePreview(
       `${API_BASE}/products/${target.productId}`,
       { headers },
     );
-    if (!productResponse.ok) return FAILED_RESULT;
+    if (!productResponse.ok) {
+      console.error(
+        `MercadoLibre /products/${target.productId}: HTTP ${productResponse.status}`,
+      );
+      return FAILED_RESULT;
+    }
 
     const product = (await productResponse.json()) as MeliProduct;
     const { price, currency } = await fetchPrice(fetchImpl, headers, target.productId);
@@ -115,7 +124,8 @@ export async function resolveMercadoLibrePreview(
       siteName: target.hostname,
       ogStatus: "ok",
     };
-  } catch {
+  } catch (error) {
+    console.error(`MercadoLibre resolution failed for ${pageUrl}:`, error);
     return FAILED_RESULT;
   }
 }

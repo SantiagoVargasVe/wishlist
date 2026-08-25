@@ -111,8 +111,9 @@ describe("resolveMercadoLibrePreview", () => {
     expect(result).toMatchObject({ price: null, currency: null });
   });
 
-  it("resolves to ogStatus: failed, not null, when the product lookup 404s", async () => {
-    const fetchImpl = vi.fn().mockResolvedValueOnce(jsonResponse({}, false));
+  it("resolves to ogStatus: failed, not null, when the product lookup 404s — and logs why", async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce({ ok: false, status: 404 });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     const result = await resolveMercadoLibrePreview(CATALOG_URL, "id", "secret", {
       fetchImpl,
@@ -127,11 +128,14 @@ describe("resolveMercadoLibrePreview", () => {
       siteName: null,
       ogStatus: "failed",
     });
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("HTTP 404"));
+    errorSpy.mockRestore();
   });
 
-  it("resolves to ogStatus: failed, not null, when the token exchange itself fails", async () => {
+  it("resolves to ogStatus: failed, not null, when the token exchange itself fails — and logs why", async () => {
     const fetchImpl = vi.fn();
     const getAccessToken = vi.fn().mockRejectedValue(new Error("token exchange failed: 400"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     const result = await resolveMercadoLibrePreview(CATALOG_URL, "id", "secret", {
       fetchImpl,
@@ -140,6 +144,11 @@ describe("resolveMercadoLibrePreview", () => {
 
     expect(result?.ogStatus).toBe("failed");
     expect(fetchImpl).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("MercadoLibre resolution failed"),
+      expect.any(Error),
+    );
+    errorSpy.mockRestore();
   });
 
   it("matches other MercadoLibre country TLDs and mercadolivre.com.br", async () => {
