@@ -67,6 +67,49 @@ describe("AddItemForm", () => {
     expect(refreshMock).toHaveBeenCalled();
   });
 
+  describe("catch-up refresh for a just-downloaded image (T081)", () => {
+    /** Simulates useItemPreview's real behavior of calling setValue("imageUrl", ...) once a scrape resolves an image — only mocked here since the whole hook is mocked. */
+    function mockPreviewWithImage() {
+      let calledOnce = false;
+      useItemPreviewMock.mockImplementation((_url: string, setValue: (name: string, value: unknown) => void) => {
+        if (!calledOnce) {
+          calledOnce = true;
+          setValue("imageUrl", "https://cdn.example/pic.jpg");
+        }
+        return RESOLVED_PREVIEW;
+      });
+    }
+
+    it("schedules two delayed catch-up refreshes when the created item had an image to download", async () => {
+      const setTimeoutSpy = vi.spyOn(window, "setTimeout");
+      mockPreviewWithImage();
+      mutateAsyncMock.mockResolvedValue({ item: { id: "item-1" } });
+
+      render(<AddItemForm wishlists={wishlists} currentWishlistId={WISHLIST_ID} onSuccess={vi.fn()} />);
+      await fillRequiredFields();
+      await userEvent.click(screen.getByRole("button", { name: "Añadir" }));
+
+      await waitFor(() => {
+        expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 1500);
+        expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 3500);
+      });
+      setTimeoutSpy.mockRestore();
+    });
+
+    it("does not schedule extra refreshes when the created item never had an image", async () => {
+      const setTimeoutSpy = vi.spyOn(window, "setTimeout");
+      mutateAsyncMock.mockResolvedValue({ item: { id: "item-1" } });
+
+      render(<AddItemForm wishlists={wishlists} currentWishlistId={WISHLIST_ID} onSuccess={vi.fn()} />);
+      await fillRequiredFields();
+      await userEvent.click(screen.getByRole("button", { name: "Añadir" }));
+
+      await waitFor(() => expect(mutateAsyncMock).toHaveBeenCalled());
+      expect(setTimeoutSpy).not.toHaveBeenCalledWith(expect.any(Function), 1500);
+      setTimeoutSpy.mockRestore();
+    });
+  });
+
   it("shows a form-level error and does not close on a server failure", async () => {
     mutateAsyncMock.mockRejectedValue(new Error("boom"));
     const onSuccess = vi.fn();

@@ -2,7 +2,7 @@
 id: T081
 title: "Fix: a newly-added item's image doesn't appear until page reload"
 epic: E9-post-mvp-ui
-status: todo
+status: done
 depends_on: [T033]
 size: S
 ---
@@ -57,24 +57,57 @@ silently undo the reasoning behind it without saying so.
 
 ## Acceptance criteria
 
-- [ ] Adding an item whose OG scrape found a real image shows that image in the list without
+- [x] Adding an item whose OG scrape found a real image shows that image in the list without
       requiring a manual page reload
-- [ ] The chosen approach doesn't reintroduce "the save waits on a slow/blocked image fetch" —
+- [x] The chosen approach doesn't reintroduce "the save waits on a slow/blocked image fetch" —
       whatever non-negotiable #2 trade-off is kept or changed, it's a stated decision, not an
       accident
-- [ ] Tests cover whatever mechanism is chosen (a poll/refetch path, an awaited download path, or
+- [x] Tests cover whatever mechanism is chosen (a poll/refetch path, an awaited download path, or
       an optimistic-state path)
+
+## Chosen approach: delayed catch-up refreshes, client-side
+
+Went with the first option — a couple of extra, delayed `router.refresh()` calls in
+`add-item-form.tsx`'s `onSubmit`, fired only when the submitted `input.imageUrl` was actually
+present (i.e., a download really was kicked off server-side):
+
+```ts
+if (input.imageUrl) {
+  window.setTimeout(() => router.refresh(), 1500);
+  window.setTimeout(() => router.refresh(), 3500);
+}
+```
+
+**Why not "await the download" (the second option):** re-read T033's task file first, as this
+task's own note asked. `downloadItemImage()` runs async "after the item row is created — a slow
+retailer CDN must never delay the save" is one of T033's own *explicit, already-tested acceptance
+criteria* — not an incidental side effect. Awaiting it here would directly reopen that criterion:
+a slow or blocked image host would make a normally-instant save visibly hang for up to
+`OG_FETCH_TIMEOUT_MS`. Not worth it for a UI polish task.
+
+**Why not the optimistic-loading-state option:** genuinely more correct (no guessed delay), but
+needs new client state to track "this item was just created and is still enriching," which is a
+bigger surface for a `size: S` task than two delayed refreshes. Worth revisiting if the delayed
+refreshes prove unreliable in practice (e.g., a consistently-slow image host makes 3.5s not enough)
+— not chosen now because there's no evidence of that yet.
+
+**Why two delayed refreshes, not one:** a single fixed delay is a guess either way; two catches
+more of the real-world download-time distribution than one without adding real complexity — just
+one more `setTimeout` call.
+
+Live-verified in a browser end to end (not just at the unit-test level): added a real item
+(`developer.mozilla.org`, a real image), watched it appear with **no image** immediately after
+the first refresh (reproducing the reported bug exactly), then watched the real MDN image appear
+on its own about two seconds later — no manual reload.
 
 ## Out of scope
 
 Any change to `downloadItemImage()`'s own retry/timeout behavior (T033) — this task is about the
 client seeing the *eventual* result, not making the download itself faster or more reliable.
 
-## Files likely touched
+## Files touched
 
 ```
-src/app/api/items/route.ts
 src/app/w/[slug]/add-item-form.tsx
-src/app/w/[slug]/hooks/use-item-preview.ts
-src/lib/api/queries.ts
+src/app/w/[slug]/add-item-form.test.tsx
 ```
