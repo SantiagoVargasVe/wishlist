@@ -67,6 +67,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 | **E7** deploy | Dockerfile, CI image build, pull-timer deploy, WAF rules | T060–T064 |
 | **E8** invites | Self-service invite minting | T070 |
 | **E9** post-mvp-ui | Card layout, image-after-add race, form UX gating, price masking, multi-select lists | T080–T084 |
+| **E10** preview-reliability | Why pasted links so often yield no image, and what to do about it | T085–T086 |
 
 ## Task index
 
@@ -149,3 +150,38 @@ found by actually using it.
 
 Five tasks are fully written as worked examples — the highest-risk and most-referenced ones.
 The rest are one-liners here; expand them into files as you pick them up, following the pattern.
+
+**E10 — Preview reliability**
+
+Real usage showed most pasted links produce no image — the one field that can't be typed by
+hand. Investigated 2026-08-25; the causes turned out to be three unrelated things, not one.
+
+- `T085` Parse schema.org `ProductGroup`, not just `Product` — recovers prices we already have
+  in the HTML and silently drop
+- `T086` Let the user supply an image URL when the scrape finds none — the only fix that works
+  on *every* site, including ones we can't fetch at all
+
+**Known and deliberately not tasked yet: the bot wall.** Several retailers serve their real HTML
+only to a narrow allowlist of link-preview crawlers, decided purely on `User-Agent` at the CDN
+edge, before the request reaches their origin:
+
+| What we send | What comes back |
+|---|---|
+| `WishlistBot/1.0` | `403 Access Denied`, ~450 bytes |
+| a browser UA, or none | `200` — but a JS bot-manager challenge page, not the product |
+| `WhatsApp/…` | `200`, the full page, `og:image` present |
+
+Measured across Zara, Bershka, Pull&Bear, Stradivarius, Massimo Dutti and Éxito — all identical.
+`facebookexternalhit`, `Twitterbot`, `Slackbot`, `Discordbot`, `TelegramBot`, `LinkedInBot` and
+`Applebot` are all refused too, so there is **no honest self-identifying User-Agent that works**.
+Adidas and H&M refuse every UA including WhatsApp's. Amazon and MercadoLibre are unaffected.
+
+Two things follow, and both matter for anyone picking up T085 or T086:
+
+- The middle row is a trap. A browser-like UA returns HTTP 200 and parses without error, so it
+  reads as success while carrying no metadata at all — and `getPreview()` would cache that as
+  `ogStatus: "ok"` for `OG_CACHE_TTL_HOURS` (7 days). Do not "fix" the bot wall by sending a
+  browser UA.
+- Getting past it means claiming to be someone else's crawler, which is a judgement call about
+  this deployment and its operator's risk appetite, not a technical one — so it stays an open
+  decision rather than a task. T086 is the deliberate way around needing that decision at all.
