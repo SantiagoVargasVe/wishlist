@@ -140,5 +140,8 @@ export const es = {
     shareErrors: {
       generic: "No se pudo compartir el enlace. Intenta de nuevo.",
     },
+    shareMetaTitle: "{name} — {title}",
+    itemsCountOne: "1 artículo",
+    itemsCount: "{n} artículos",
   },
 } as const;

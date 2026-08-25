@@ -1,45 +1,25 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { cache } from "react";
 
 import { t } from "@/lib/i18n";
-import { currentUserId } from "@/server/auth/session";
-import { DomainError } from "@/server/errors";
-import { getMyWishlists } from "@/server/services/me";
-import { getPublicWishlist } from "@/server/services/public-wishlist";
+import { config } from "@/server/config";
 
+import { ogImageUrl, shareDescription, shareTitle } from "./og-metadata";
 import { OwnerView } from "./owner-view";
 import { VisitorView } from "./visitor-view";
+import { findOwnedWishlists, findPublicWishlist } from "./wishlist-data";
 
 type Props = { params: Promise<{ slug: string }> };
 
 /**
- * `cache()` so `generateMetadata` and the page body share one call each —
- * Next dedupes `fetch()` automatically but not arbitrary async functions,
- * and "one query, not one per consumer" is the same bar T025 already holds
- * the data layer to.
- *
- * Returns every owned wishlist, not just the one matching `slug` — T053's
- * add-item modal needs the full set for its "which lists" checkbox list.
- * Callers that only care about the current one still do their own `.find()`.
+ * Full OG treatment only applies to the public branch — `{displayName}`
+ * comes from `ownerDisplayName`, a field `MyWishlist` doesn't have, and a
+ * logged-in owner previewing their own link is never crawled by WhatsApp
+ * (crawlers carry no session cookie) — see T058's task file § Design
+ * decisions. `images` is only set when a live item actually has one; when
+ * it's omitted, Next falls through to `opengraph-image.tsx`'s generated
+ * card on its own.
  */
-const findOwnedWishlists = cache(async () => {
-  const userId = await currentUserId();
-  if (!userId) return null;
-
-  return getMyWishlists(userId);
-});
-
-/** `null` for a slug that genuinely doesn't exist — anything else propagates. */
-const findPublicWishlist = cache(async (slug: string) => {
-  try {
-    return await getPublicWishlist(slug);
-  } catch (error) {
-    if (error instanceof DomainError && error.code === "WISHLIST_NOT_FOUND") return null;
-    throw error;
-  }
-});
-
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
 
@@ -47,7 +27,27 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (owned) return { title: owned.title };
 
   const publicWishlist = await findPublicWishlist(slug);
-  return { title: publicWishlist?.title ?? t("common.appName") };
+  if (!publicWishlist) return { title: t("common.appName") };
+
+  const title = shareTitle(publicWishlist);
+  const description = shareDescription(publicWishlist.items.length);
+  const imageUrl = ogImageUrl(publicWishlist.items, config.APP_URL);
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      ...(imageUrl ? { images: [{ url: imageUrl }] } : {}),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
+  };
 }
 
 export default async function WishlistPage({ params }: Props) {

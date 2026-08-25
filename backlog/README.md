@@ -111,7 +111,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 - `T055` Create / rename / delete wishlist — **done**
 - `T056` Wishlist filter (which list to show — no price filter, see ADR-0009) — **done**
 - `T057` Share CTA — **done**
-- `T058` `generateMetadata()` OG tags on the share page
+- `T058` `generateMetadata()` OG tags on the share page — **done**
 
 **E7 — Deploy**
 - `T060` Add the app hostname to the Cloudflare Tunnel — *manual, Cloudflare dashboard*
