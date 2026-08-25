@@ -73,8 +73,10 @@ so the controls are about griefing, not access:
 - `claim_token` returned to the claimer makes the action reversible without an account.
 - The unique constraint on `item_claims.item_id` prevents double-claim races at the DB level.
   A read-then-write in application code has a race window; don't write one.
-- Rate limits per IP and per slug (see [api-contract.md](api-contract.md)).
-- Cloudflare WAF in front. Free tier is plenty at this scale.
+- Rate limits per IP and per slug (see [api-contract.md](api-contract.md)) — the Postgres
+  token-bucket limiter is the **only** line of defense here, not a backstop. Cloudflare's rate
+  limiting rules turned out to be a paid-plan feature, not available on this domain's plan
+  (checked 2026-08-25) — see "Known accepted risks" below.
 
 **The real threat is a single griefer marking everything bought, not a botnet.** Reversibility
 and a per-slug cap matter more than raw request throttling.
@@ -114,3 +116,4 @@ and a per-slug cap matter more than raw request throttling.
 | Slug leak = full list access | Capability URLs are the design. Slugs are unguessable; rotation can be added if needed. |
 | Scraping from the host's own IP | Low volume, on-demand only, cached. No scheduled crawling — that's part of why the cron-refresh design was rejected. |
 | No backups | Deliberate — hobby project, data is reconstructable. A corrupted database means re-adding items, not losing anything irreplaceable. |
+| No edge-layer rate limiting (T064 not done) | Cloudflare's rate limiting rules are a paid-plan feature; not worth paying for at this scale. The Postgres token-bucket limiter (`src/server/rate-limit/`) is the sole defense — acceptable given the threat model is a single griefer, not a botnet (see above). Free options like Bot Fight Mode weren't evaluated; revisit if abuse actually shows up. |

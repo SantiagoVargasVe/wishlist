@@ -120,11 +120,13 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 - `T058` `generateMetadata()` OG tags on the share page — **done**
 
 **E7 — Deploy**
-- `T060` Add the app hostname to the Cloudflare Tunnel — *manual, Cloudflare dashboard*
+- `T060` Add the app hostname to the Cloudflare Tunnel — **done** (manual, Cloudflare dashboard)
 - `T061` `infra/Dockerfile` (multi-stage, Next standalone output) — **done**
 - `T062` GitHub Actions: build `linux/amd64` image after CI → GHCR — **done**
 - `T063` Host: compose pinned to the GHCR image + systemd pull timer — **done**
-- `T064` Cloudflare WAF rate-limit rules
+- `T064` Cloudflare WAF rate-limit rules — **won't do**: turned out to be a paid-plan feature.
+  The Postgres token-bucket limiter is the sole line of defense; see
+  [security.md](../docs/context/security.md)'s "Known accepted risks"
 
 T061–T063 implement [ADR-0007](../docs/adr/0007-deploy-via-ghcr-and-pull-timer.md) and are
 blocked on T001 — there's no application to build an image from yet.

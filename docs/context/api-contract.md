@@ -134,5 +134,6 @@ Starting points, tuned after real traffic:
 | `POST /api/preview` | 30 / hour per user |
 | claim / unclaim | 20 / hour per IP, 60 / hour per slug |
 
-Cloudflare WAF rules sit in front of the claim and preview routes as the first line; the
-Postgres token bucket is the backstop.
+No Cloudflare WAF/rate-limiting layer in front of these — that turned out to be a paid-plan
+feature (checked 2026-08-25). The Postgres token bucket above is the only line of defense, not a
+backstop to one. See [security.md](security.md)'s "Known accepted risks."
