@@ -44,10 +44,15 @@ afterEach(() => {
 });
 
 describe("EditItemForm", () => {
-  it("prefills every field from the item", () => {
+  it("prefills every field from the item", async () => {
     render(<EditItemForm item={priceyItem} onSuccess={vi.fn()} />);
 
-    expect(screen.getByLabelText("Enlace del producto")).toHaveValue(priceyItem.url);
+    // mode: "onTouched" (T082) runs an initial validation pass on mount to
+    // give the Save button an accurate `isValid` from the start — that
+    // resolves on a microtask, after this test's own synchronous
+    // assertions would otherwise run. Waiting on the first one lets RTL
+    // absorb that pending update instead of warning about an unwrapped act().
+    await waitFor(() => expect(screen.getByLabelText("Enlace del producto")).toHaveValue(priceyItem.url));
     expect(screen.getByLabelText("Título")).toHaveValue("Bicicleta");
     expect(screen.getByLabelText("Notas")).toHaveValue("Talla M");
     expect(screen.getByLabelText("Precio")).toHaveValue("49.99");
@@ -122,5 +127,33 @@ describe("EditItemForm", () => {
       "No se pudo guardar los cambios. Intenta de nuevo.",
     );
     expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  describe("Save button validity gating (T082)", () => {
+    it("starts enabled — every field is prefilled with the item's own already-valid values", async () => {
+      render(<EditItemForm item={priceyItem} onSuccess={vi.fn()} />);
+
+      await waitFor(() => expect(screen.getByRole("button", { name: "Guardar" })).toBeEnabled());
+    });
+
+    it("disables once the required title is cleared", async () => {
+      render(<EditItemForm item={priceyItem} onSuccess={vi.fn()} />);
+      await waitFor(() => expect(screen.getByRole("button", { name: "Guardar" })).toBeEnabled());
+
+      await userEvent.clear(screen.getByLabelText("Título"));
+
+      expect(screen.getByRole("button", { name: "Guardar" })).toBeDisabled();
+    });
+
+    it("re-enables once a cleared title is filled back in", async () => {
+      render(<EditItemForm item={priceyItem} onSuccess={vi.fn()} />);
+      await waitFor(() => expect(screen.getByRole("button", { name: "Guardar" })).toBeEnabled());
+      await userEvent.clear(screen.getByLabelText("Título"));
+      expect(screen.getByRole("button", { name: "Guardar" })).toBeDisabled();
+
+      await userEvent.type(screen.getByLabelText("Título"), "Bicicleta nueva");
+
+      expect(screen.getByRole("button", { name: "Guardar" })).toBeEnabled();
+    });
   });
 });

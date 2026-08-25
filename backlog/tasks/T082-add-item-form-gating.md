@@ -2,7 +2,7 @@
 id: T082
 title: Add-item form — gate fields behind a valid URL, gate Save behind validity
 epic: E9-post-mvp-ui
-status: todo
+status: done
 depends_on: [T053]
 size: S
 ---
@@ -47,16 +47,39 @@ prefilling from a fresh scrape. The Save-button-validity gating, though, is wort
 
 ## Acceptance criteria
 
-- [ ] In `AddItemForm`, title/notes/price/currency/wishlist-list fields are disabled until the URL
+- [x] In `AddItemForm`, title/notes/price/currency/wishlist-list fields are disabled until the URL
       field holds a valid URL **and** the preview query for it has settled (succeeded or failed)
-- [ ] A failed or image-less scrape still unlocks the rest of the form — never blocks manual entry
-- [ ] A user typing in the URL field before the preview settles never has a field they've already
+- [x] A failed or image-less scrape still unlocks the rest of the form — never blocks manual entry
+- [x] A user typing in the URL field before the preview settles never has a field they've already
       started editing silently overwritten by a delayed prefill
-- [ ] Save is disabled in `AddItemForm` until the form is valid per `createItemSchema` (title,
+- [x] Save is disabled in `AddItemForm` until the form is valid per `createItemSchema` (title,
       wishlistIds, and the url-implies-prefill-happened state above); enabled once satisfied
-- [ ] Save is disabled in `EditItemForm` until the form is valid per `updateItemSchema`
-- [ ] Tests: fields start disabled, unlock after a successful preview, unlock after a failed
+- [x] Save is disabled in `EditItemForm` until the form is valid per `updateItemSchema`
+- [x] Tests: fields start disabled, unlock after a successful preview, unlock after a failed
       preview, Save stays disabled with required fields empty, Save enables once they're filled
+
+## Implementation notes
+
+**`mode: "onTouched"`, not `"onChange"`.** The task's original plan called for `"onChange"` (or
+`"all"`) to keep `isValid` live. Building it revealed a real UX cost: `mode: "onChange"` also makes
+RHF show a field's validation error on its very first keystroke — typing a single character into
+the (always-enabled) URL field would immediately flash "Enter a valid URL". `"onTouched"` still
+gives an accurate, live `isValid` (accessing `formState.isValid` in render makes RHF validate once
+on mount and keep it current from then on, regardless of `mode`), but only starts showing a given
+field's error after that field has been blurred once — the same live Save-button gating, without
+the eager-error flashing `"onChange"` would have caused on the one field that's editable from the
+very start.
+
+`useItemPreview` now returns `fieldsEnabled: validUrl !== null && !preview.isFetching` alongside
+its existing `preview` fields — computed in the hook (which already owns `validUrl`/`isFetching`),
+not duplicated in the component. `PriceFields` and `WishlistMultiSelect` both gained a `disabled`
+prop, forwarded to their underlying Base UI `Select.Root`/`Combobox.Root` (both already support
+`disabled` natively).
+
+Live-verified in a browser: opened the add-item modal, saw title/notes/price/currency/lists all
+visibly dimmed and non-interactive with Save also disabled; typed a real URL; once its scrape
+settled (a real fetch of `example.com`, prefilling title as "Example Domain"), every field
+un-dimmed and Save became clickable — confirmed end to end, not just at the unit-test level.
 
 ## Out of scope
 
@@ -64,11 +87,17 @@ Any change to the preview/prefill logic itself (`useItemPreview`) beyond what's 
 field-enablement off its existing `isFetching`/`data` state — this task consumes that hook, it
 doesn't redesign it.
 
-## Files likely touched
+## Files touched
 
 ```
 src/app/w/[slug]/add-item-form.tsx
 src/app/w/[slug]/add-item-form.test.tsx
 src/app/w/[slug]/edit-item-form.tsx
 src/app/w/[slug]/edit-item-form.test.tsx
+src/app/w/[slug]/hooks/use-item-preview.ts
+src/app/w/[slug]/hooks/use-item-preview.test.ts
+src/app/w/[slug]/price-fields.tsx
+src/app/w/[slug]/price-fields.test.tsx
+src/app/w/[slug]/wishlist-multiselect.tsx
+src/app/w/[slug]/wishlist-multiselect.test.tsx
 ```

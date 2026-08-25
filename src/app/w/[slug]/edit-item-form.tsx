@@ -22,7 +22,7 @@ export function EditItemForm({ item, onSuccess }: { item: PublicItem; onSuccess:
     control,
     handleSubmit,
     setError,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isValid },
   } = useForm<UpdateItemInput>({
     resolver: zodResolver(updateItemSchema),
     defaultValues: {
@@ -32,6 +32,7 @@ export function EditItemForm({ item, onSuccess }: { item: PublicItem; onSuccess:
       priceAmount: item.priceAmount ?? undefined,
       priceCurrency: item.priceCurrency === null ? undefined : (item.priceCurrency as "COP" | "USD"),
     },
+    mode: "onTouched",
   });
 
   const onSubmit = handleSubmit(async (input) => {
@@ -65,7 +66,7 @@ export function EditItemForm({ item, onSuccess }: { item: PublicItem; onSuccess:
           {errors.root.message}
         </p>
       )}
-      <Button type="submit" disabled={isSubmitting}>
+      <Button type="submit" disabled={!isValid || isSubmitting}>
         {isSubmitting ? t("wishlist.editItemModal.submitting") : t("wishlist.editItemModal.submit")}
       </Button>
     </form>

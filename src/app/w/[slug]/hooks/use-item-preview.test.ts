@@ -125,4 +125,61 @@ describe("useItemPreview", () => {
 
     expect(setValue).toHaveBeenCalledTimes(4);
   });
+
+  describe("fieldsEnabled (T082)", () => {
+    it("is false while the url is not yet schema-valid", () => {
+      mockPreview(undefined);
+
+      const { result } = renderHook(({ url }) => useItemPreview(url, vi.fn()), {
+        initialProps: { url: "" },
+      });
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+
+      expect(result.current.fieldsEnabled).toBe(false);
+    });
+
+    it("is false while a valid url's preview is still fetching", () => {
+      vi.mocked(usePreviewQuery).mockReturnValue({
+        data: undefined,
+        isFetching: true,
+      } as ReturnType<typeof usePreviewQuery>);
+
+      const { result } = renderHook(({ url }) => useItemPreview(url, vi.fn()), {
+        initialProps: { url: "https://example.com/product" },
+      });
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+
+      expect(result.current.fieldsEnabled).toBe(false);
+    });
+
+    it("is true once a valid url's preview has settled successfully", () => {
+      mockPreview(OK_RESULT);
+
+      const { result } = renderHook(({ url }) => useItemPreview(url, vi.fn()), {
+        initialProps: { url: "https://example.com/product" },
+      });
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+
+      expect(result.current.fieldsEnabled).toBe(true);
+    });
+
+    it("is true once a valid url's preview has settled with a failure — a bad scrape never blocks manual entry", () => {
+      mockPreview({ ...OK_RESULT, ogStatus: "failed", title: null, imageUrl: null, price: null, currency: null });
+
+      const { result } = renderHook(({ url }) => useItemPreview(url, vi.fn()), {
+        initialProps: { url: "https://example.com/product" },
+      });
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+
+      expect(result.current.fieldsEnabled).toBe(true);
+    });
+  });
 });

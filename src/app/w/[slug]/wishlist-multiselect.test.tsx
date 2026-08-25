@@ -72,4 +72,14 @@ describe("WishlistMultiSelect", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent("Elige al menos una lista");
   });
+
+  it("disables the search input when disabled (T082)", () => {
+    function DisabledHarness() {
+      const { control } = useHarnessForm(["w1"]);
+      return <WishlistMultiSelect control={control} wishlists={wishlists} disabled />;
+    }
+    render(<DisabledHarness />);
+
+    expect(screen.getByRole("combobox")).toBeDisabled();
+  });
 });
