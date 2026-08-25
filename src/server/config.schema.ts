@@ -44,6 +44,13 @@ export const configSchema = z.object({
   OG_MAX_IMAGE_BYTES: z.coerce.number().int().positive().default(10_485_760),
   OG_CACHE_TTL_HOURS: z.coerce.number().int().positive().default(168),
   OG_USER_AGENT: z.string().min(1).default("WishlistBot/1.0"),
+
+  // MercadoLibre catalog-product lookups (T036). Optional: an operator who
+  // hasn't registered a MercadoLibre developer app just leaves these unset,
+  // and MercadoLibre links fall through to the generic scrape exactly as
+  // before — this integration is additive, never a new hard dependency.
+  MELI_CLIENT_ID: z.string().min(1).optional(),
+  MELI_CLIENT_SECRET: z.string().min(1).optional(),
 });
 
 export type Config = z.infer<typeof configSchema>;

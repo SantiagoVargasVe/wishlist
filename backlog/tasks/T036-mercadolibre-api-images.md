@@ -2,7 +2,7 @@
 id: T036
 title: MercadoLibre product data via their official API
 epic: E4-og
-status: todo
+status: done
 depends_on: [T032]
 size: L
 ---
@@ -43,92 +43,135 @@ registering the app)
 - Token lifetime/refresh cadence needs confirming against the real docs response (`expires_in`)
   during implementation, not assumed.
 
-### URL → item ID is not one fixed shape
+### URL → item ID is not one fixed shape — and only one shape turned out to be reachable
 
-Two different MercadoLibre permalink shapes need handling, and they hit two different API
-resources:
+Two different MercadoLibre permalink shapes exist, hitting two different API resources:
 
 - **Catalog/product permalinks** — `.../p/MCO43708014` (confirmed live, T035's own test URL) — the
-  id after `/p/` is a *catalog product* id, resolved via `GET /products/:id`, not `GET /items/:id`.
-- **Individual listing permalinks** — typically `.../MCO-123456789-...` (item id with a hyphen
-  after the two-letter site prefix) — resolved via `GET /items/:id`.
+  id after `/p/` is a *catalog product* id, resolved via `GET /products/:id`.
+- **Individual listing permalinks** — typically `articulo.mercadolibre.<tld>/MCO-123456789-...`
+  (item id with a hyphen after the site prefix) — would be resolved via `GET /items/:id`.
 
-Confirming which shape a given real URL is and what each endpoint actually returns (title, price,
-currency, image) needs doing against the live API during implementation — don't guess the field
-names or endpoint choice from memory.
+**Confirmed live, with real registered credentials, before writing any code:** `GET /items/:id`
+returns `403 access_denied` for a `client_credentials` app-level token — tested against several
+real, currently-live items (one discovered seconds earlier through `/products/:id/items`, ruling
+out "stale id" as the explanation). This is a hard wall, not a fluke: individual-listing lookups
+require the item's own seller to grant a real, logged-in `Authorization Code` consent — an
+app-level credential alone cannot reach them. `GET /products/:id` and `GET
+/products/:id/items` (which carries the actual price, confirmed against a real iPhone 15 listing
+at `4,650,000 COP`) **do** work with the app-level token.
+
+Santiago chose (see below) to ship the catalog-only version rather than pursue Authorization Code
+for the individual-listing case.
 
 ## Design decisions
 
+**Catalog-product URLs only — individual listing links are a documented gap, not silently
+dropped.** Given the confirmed `403 access_denied` wall on `GET /items/:id` above, pursuing
+Authorization Code (a one-time manual consent as the app owner, a long-lived refresh token to
+store and rotate) was weighed against shipping the smaller, already-working slice now. Santiago
+chose the smaller slice: mainstream catalog-enrolled products (phones, appliances, branded goods —
+generally what `/p/MCO...` links point to) resolve; individual/niche listings
+(`articulo.mercadolibre.<tld>/MCO-...`) keep falling through to the generic scrape, which fails
+for them exactly as it did before this task — not a regression, a real but partial win.
+
 **A parallel data source, not a `parser.ts` fallback.** T035's vendor registry fills in one field
 (`imageUrl`) when the generic HTML parse already ran and came up short. MercadoLibre needs the
-opposite shape: skip the HTML fetch and generic parse entirely for `mercadolibre.<tld>` /
-`mercadolivre.com.br` hosts, and build the `PreviewResult` (title, imageUrl, price, currency)
-straight from their API's JSON. The natural seam is `scrape()` in `src/server/og/preview.ts`:
-branch on hostname before calling `safeFetch` + `parseProductMetadata`, same place `getPreview()`
-already normalizes and caches by URL — `og_cache` and the rest of the pipeline (T033's image
-download, the add-item form's prefill) don't need to know or care which source produced the
-`PreviewResult`.
+opposite shape: skip the HTML fetch and generic parse entirely for a recognized catalog URL, and
+build the `PreviewResult` (title, imageUrl, price, currency) straight from their API's JSON. The
+seam is `scrape()` in `src/server/og/preview.ts`: `resolveMercadoLibrePreview()` runs first; a
+`null` return (not a catalog URL, or credentials unset) falls through to the existing `safeFetch` +
+`parseProductMetadata` path unchanged. Once it recognizes a catalog URL, though, it **always**
+returns a full result (`ogStatus: "ok"` or `"failed"`) rather than falling through on a partial
+failure — a generic `safeFetch` retry of a `mercadolibre.*` URL is known (T035) to be doomed by the
+`/gz/account-verification` wall, so falling through would just waste a timeout. `og_cache` and the
+rest of the pipeline (T033's image download, the add-item form's prefill) don't need to know or
+care which source produced the `PreviewResult`.
 
 **Config, not a secret hardcoded anywhere.** `MELI_CLIENT_ID` / `MELI_CLIENT_SECRET` belong in
 `config.schema.ts` like every other credential — **optional**, not required at boot. Not every
 self-hosted deployment will register a MercadoLibre app; when unset, MercadoLibre links simply
-fall through to the existing generic scrape (which, per the investigation above, will resolve to
-`ogStatus: "failed"` today — no worse than the current behavior, never a hard failure).
+fall through to the existing generic scrape.
 
-**Still goes through `safeFetch`, even though the SSRF class of risk is different.**
-`api.mercadolibre.com` is a fixed, trusted host, not user-supplied — the DNS-rebinding/private-IP
-concern `safeFetch` exists for doesn't really apply to a hardcoded hostname. Routing through it
-anyway is about consistency (timeout, size cap, no-throw-raw-errors contract) matching
-[security.md](../../docs/context/security.md)'s literal "no exceptions," not because this specific
-call is SSRF-risky. The item/product id extracted from the pasted URL must still be validated
-against a strict format (e.g. `^[A-Z]{3}-?\d+$`) before it's interpolated into the API path —
-that's the actual injection surface here, not SSRF.
+**Deviation: plain `fetch()`, not `safeFetch`.** The original plan called for routing MercadoLibre
+API calls through `safeFetch` anyway, for consistency. Building it revealed that doesn't actually
+fit: `safeFetch`'s `defaultTransport` only issues `GET`-shaped requests with two fixed headers
+(User-Agent, Accept-Encoding) — it has no support for a `POST` body or an `Authorization` header,
+both required for the OAuth token exchange and every authenticated API call here. Extending
+`safeFetch`'s contract to accept arbitrary methods/headers/bodies would blur its actual job — a
+narrowly-scoped guard for *user-supplied* URLs — just to reuse it for calls to a fixed, trusted
+host (`api.mercadolibre.com`) that was never the risk `safeFetch` exists to guard against (no
+DNS-rebinding/private-IP concern applies to a hardcoded hostname). Plain `fetch()` is what this
+codebase already uses for genuinely trusted, fixed-host calls elsewhere; `security.md`'s "every
+outbound fetch" is about fetching what a user pasted, not about calling this app's own configured
+third-party API. The real injection surface here — the catalog-product id extracted from the
+pasted URL — is still validated against a strict pattern before it's interpolated into the API
+path.
 
-**Access token caching, not a fetch-per-request.** `client_credentials` tokens are reusable until
-they expire; fetching a new one on every preview would be wasteful and adds MercadoLibre's own
-rate limits as a new failure mode on the hot path. Cache the token in memory with its expiry and
-refresh proactively — needs its own small module, not stuffed into `scrape()`.
+**Access token caching via a factory closure, not a module-level singleton with a test-reset
+escape hatch.** `createMeliTokenProvider()` returns a closure holding its own cache; the app uses
+one shared instance (`getMeliAccessToken`), while tests construct their own isolated instances.
+`client_credentials` tokens are reusable for their full lifetime (confirmed live: `expires_in:
+21600`, 6 hours) — refreshed proactively a minute before expiry, never fetched per preview.
+
+**Price comes from `GET /products/:id/items`, not `buy_box_winner` on the product itself.**
+`buy_box_winner` on `/products/:id` was `null` on every real product tried during live
+verification — it only appears to populate for products with one clearly-dominant, high-confidence
+offer. `/products/:id/items` reliably returned the real competing listings (confirmed against a
+real iPhone 15 at `4,650,000 COP`) even when `buy_box_winner` was null, and its first result is
+MercadoLibre's own ranking of those offers — not necessarily the cheapest, but the same signal a
+visitor sees first on the real page. When no listings exist at all (`404 "No winners found"`,
+confirmed live for two real but currently-unsold catalog entries), price/currency resolve to
+`null` — title and image still resolve fine, `ogStatus` stays `"ok"`, matching the "every field is
+independently optional" contract the rest of the parser already holds to. The same
+`SUPPORTED_CURRENCIES` (COP/USD) filter `preview.ts`'s generic path already applied is reused here
+via a small shared module, rather than duplicated or silently skipped for this path.
 
 ## Acceptance criteria
 
-- [ ] `MELI_CLIENT_ID` / `MELI_CLIENT_SECRET` added to `config.schema.ts` as optional
-- [ ] A token-management module: fetches an app-level access token via `client_credentials`,
-      caches it, refreshes before expiry — never fetches a fresh token per preview request
-- [ ] Hostname detection for `mercadolibre.<tld>` and `mercadolivre.com.br` (Brazil's spelling)
-- [ ] Item/product id extraction from both permalink shapes described above; rejects anything that
-      doesn't match the expected id format rather than interpolating it unchecked into a URL
-- [ ] Resolves via `GET /items/:id` or `GET /products/:id` (whichever the id shape calls for) and
-      maps the response into `PreviewResult`'s existing shape — title, imageUrl, price, currency,
-      siteName
-- [ ] When `MELI_CLIENT_ID`/`MELI_CLIENT_SECRET` are unset, MercadoLibre URLs fall through to the
-      existing generic scrape path unchanged — this feature is additive, never a new hard
-      dependency for operators who don't want it
-- [ ] Never blocks a save (non-negotiable #2) — an API error, a missing token, or an unrecognized
-      URL shape all resolve to the existing `ogStatus: "failed"` contract, exactly like a failed
-      generic scrape does today
-- [ ] Tests: id extraction for both permalink shapes (and rejection of malformed ones), token
-      caching/refresh behavior, `PreviewResult` mapping from a realistic API response fixture, the
-      unset-credentials fallthrough, and that a MercadoLibre URL never reaches the generic
-      `safeFetch` + `parseProductMetadata` path when credentials *are* configured
+- [x] `MELI_CLIENT_ID` / `MELI_CLIENT_SECRET` added to `config.schema.ts` as optional
+- [x] A token-management module (`vendors/mercadolibre/token.ts`): fetches an app-level access
+      token via `client_credentials`, caches it, refreshes before expiry — never fetches a fresh
+      token per preview request
+- [x] Hostname detection for `mercadolibre.<tld>` and `mercadolivre.com.br` (Brazil's spelling)
+- [x] Catalog-product id extraction from `.../p/MCO...`-style permalinks only (see the scope
+      decision above) — a non-matching path resolves to `null`, never interpolated unchecked into
+      the API URL
+- [x] Resolves via `GET /products/:id` (title, image) and `GET /products/:id/items` (price,
+      currency) and maps the response into `PreviewResult`'s existing shape
+- [x] When `MELI_CLIENT_ID`/`MELI_CLIENT_SECRET` are unset, or the URL isn't a recognized catalog
+      permalink, MercadoLibre URLs fall through to the existing generic scrape path unchanged
+- [x] Never blocks a save (non-negotiable #2) — a failed token exchange, a 404 product lookup, or
+      an unrecognized URL all resolve cleanly (`ogStatus: "failed"` or fall-through to the generic
+      path), never a thrown error reaching `getPreview()`
+- [x] Tests: catalog-id extraction and hostname matching (including rejection of non-catalog and
+      non-MercadoLibre URLs), token caching/refresh/isolation-between-instances, `PreviewResult`
+      mapping from realistic API response fixtures (including the no-active-listings and
+      unsupported-currency cases), the unset-credentials and non-matching-URL fallthroughs, and
+      that a recognized MercadoLibre URL never reaches `safeFetch` once credentials are configured
+- [x] Live-verified end to end with real registered credentials: real title, real image, real
+      price (`4,650,000 COP`) for a real, currently-listed iPhone 15 catalog page — not just
+      mocked-test-passing
 
 ## Out of scope
 
-Registering the actual MercadoLibre developer app — that's Santiago's own manual step, like T060.
-This task only needs to work once real `MELI_CLIENT_ID`/`MELI_CLIENT_SECRET` values exist in
-`.env`.
+Individual MercadoLibre listing permalinks (`articulo.mercadolibre.<tld>/MCO-...`) — confirmed
+live that `GET /items/:id` is walled off from app-level tokens; would need Authorization Code (the
+item's own seller granting real login-based consent), a materially bigger task Santiago chose not
+to pursue now. These links keep resolving to `ogStatus: "failed"`, same as before this task.
 
-Any MercadoLibre country beyond what a single `api.mercadolibre.com` + site-id-prefix scheme
-covers, if their API turns out to need a different base URL per country — confirm this during
-implementation rather than assuming today.
+Registering the actual MercadoLibre developer app — that was Santiago's own manual step, done
+before implementation started here.
 
 Scraping MercadoLibre's HTML directly, with headers/cookies/session tuned to dodge the
 `/gz/account-verification` wall — this app has no interest in maintaining an anti-bot-detection
 arms race, this task exists specifically to avoid that path.
 
-## Files likely touched
+## Files touched
 
 ```
 src/server/config.schema.ts
+src/server/og/supported-currencies.ts
 src/server/og/vendors/mercadolibre/token.ts
 src/server/og/vendors/mercadolibre/token.test.ts
 src/server/og/vendors/mercadolibre/resolve.ts

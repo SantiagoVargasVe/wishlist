@@ -10,6 +10,8 @@ import { ogCache } from "../db/schema";
 import type { Db } from "../db/types";
 import { safeFetch } from "../net/safe-fetch";
 import { parseProductMetadata } from "./parser";
+import { SUPPORTED_CURRENCIES } from "./supported-currencies";
+import { resolveMercadoLibrePreview } from "./vendors/mercadolibre/resolve";
 
 export type PreviewResult = {
   title: string | null;
@@ -19,8 +21,6 @@ export type PreviewResult = {
   siteName: string | null;
   ogStatus: "ok" | "failed";
 };
-
-const SUPPORTED_CURRENCIES = new Set(["COP", "USD"]);
 
 /** The fragment never affects what a server returns, and stripping it means #foo/#bar variants of one page share a cache entry. */
 function normalizeUrl(rawUrl: string): string {
@@ -72,8 +72,25 @@ const FAILED_RESULT: PreviewResult = {
  * throws — a blocked/timed-out/unparseable page resolves to `ogStatus:
  * "failed"` with every field null, the same "prefill suggestion, not a
  * gate" contract the rest of the OG pipeline holds to.
+ *
+ * A MercadoLibre catalog-product URL (with `MELI_CLIENT_ID`/`MELI_CLIENT_SECRET`
+ * configured) is resolved through their own API instead — confirmed live
+ * (T036) that MercadoLibre 302s a generic `safeFetch` request to a bot-check
+ * wall before any HTML is served, so falling through to the code below for
+ * one of those URLs would only waste a timeout on a fetch that can't
+ * succeed. `resolveMercadoLibrePreview` returns `null` only when the URL
+ * isn't a MercadoLibre catalog link or credentials aren't configured; once
+ * it commits to handling a URL it always returns a full result, `ogStatus`
+ * "ok" or "failed", never partial.
  */
 async function scrape(url: string): Promise<PreviewResult> {
+  const meli = await resolveMercadoLibrePreview(
+    url,
+    config.MELI_CLIENT_ID,
+    config.MELI_CLIENT_SECRET,
+  ).catch(() => null);
+  if (meli) return meli;
+
   let html: string;
   let finalUrl: string;
   try {
