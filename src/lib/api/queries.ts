@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { CreateItemInput } from "@/lib/schemas/item";
+import type { CreateItemInput, UpdateItemInput } from "@/lib/schemas/item";
 import type { PreviewResult } from "@/server/og/preview";
 import type { PublicItem } from "@/server/services/items";
 import type { PublicVisitorWishlist } from "@/server/services/public-wishlist";
@@ -85,6 +85,29 @@ export function useCreateItemMutation() {
   return useMutation({
     mutationFn: (input: CreateItemInput) =>
       apiFetch<{ item: PublicItem }>("/api/items", { method: "POST", body: JSON.stringify(input) }),
+  });
+}
+
+export function useUpdateItemMutation() {
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateItemInput }) =>
+      apiFetch<{ item: PublicItem }>(`/api/items/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }),
+  });
+}
+
+export function useDeleteItemMutation() {
+  return useMutation({
+    mutationFn: (id: string) => apiFetch<void>(`/api/items/${id}`, { method: "DELETE" }),
+  });
+}
+
+export function useRemoveItemFromWishlistMutation() {
+  return useMutation({
+    mutationFn: ({ itemId, wishlistId }: { itemId: string; wishlistId: string }) =>
+      apiFetch<void>(`/api/items/${itemId}/wishlists/${wishlistId}`, { method: "DELETE" }),
   });
 }
 
