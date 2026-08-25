@@ -6,10 +6,14 @@ import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * Single-select only — nothing in this app needs multi-select yet (choosing
- * which lists an item belongs to reads better as a checkbox list than a
- * multi-select dropdown, when that screen gets built). Add `Group`/`Arrow`
- * parts if a real use for them shows up; don't build them speculatively.
+ * Single-select only. Which lists an item belongs to used to be exactly the
+ * "multi-select dropdown" case this comment once ruled out in favor of a
+ * checkbox list — T084 replaced that checkbox list with
+ * `wishlist-multiselect.tsx`, built on `@base-ui-components/react/combobox`
+ * instead of extending this component, since a searchable multi-select and a
+ * plain single-select dropdown are different enough primitives to compose
+ * rather than force through one wrapper. Add `Group`/`Arrow` parts here if a
+ * real single-select use for them shows up; don't build them speculatively.
  */
 export const Select = {
   Root: BaseSelect.Root,

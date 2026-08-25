@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { CreateItemInput } from "@/lib/schemas/item";
 import type { PublicWishlist } from "@/server/services/wishlists";
 
-import { WishlistCheckboxList } from "./wishlist-checkbox-list";
+import { WishlistMultiSelect } from "./wishlist-multiselect";
 
 const wishlists: PublicWishlist[] = [
   { id: "w1", slug: "s1", title: "Cumpleaños", isDefault: true, hideClaimsFromOwner: false },
@@ -21,31 +21,44 @@ function Harness({ onChange }: { onChange: (ids: string[]) => void }) {
   const { control, watch } = useHarnessForm(["w1"]);
   onChange(watch("wishlistIds"));
 
-  return <WishlistCheckboxList control={control} wishlists={wishlists} />;
+  return <WishlistMultiSelect control={control} wishlists={wishlists} />;
 }
 
-describe("WishlistCheckboxList", () => {
-  it("starts with the default-checked list checked and the other unchecked", () => {
+describe("WishlistMultiSelect", () => {
+  it("starts with the default-selected list shown as a chip", () => {
     render(<Harness onChange={vi.fn()} />);
 
-    expect(screen.getByRole("checkbox", { name: "Cumpleaños" })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "Boda" })).not.toBeChecked();
+    expect(screen.getByText("Cumpleaños")).toBeInTheDocument();
+    expect(screen.queryByText("Boda")).not.toBeInTheDocument();
   });
 
-  it("adds a list's id when it's checked", async () => {
+  it("filters the option list as the user types", async () => {
+    render(<Harness onChange={vi.fn()} />);
+    const input = screen.getByRole("combobox");
+
+    await userEvent.click(input);
+    await userEvent.type(input, "Bod");
+
+    expect(await screen.findByRole("option", { name: "Boda" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Cumpleaños" })).not.toBeInTheDocument();
+  });
+
+  it("adds a wishlist's id when its option is selected", async () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
+    const input = screen.getByRole("combobox");
 
-    await userEvent.click(screen.getByRole("checkbox", { name: "Boda" }));
+    await userEvent.click(input);
+    await userEvent.click(await screen.findByRole("option", { name: "Boda" }));
 
     expect(onChange).toHaveBeenLastCalledWith(["w1", "w2"]);
   });
 
-  it("removes a list's id when it's unchecked", async () => {
+  it("removes a wishlist's id when its chip's remove button is clicked", async () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
 
-    await userEvent.click(screen.getByRole("checkbox", { name: "Cumpleaños" }));
+    await userEvent.click(screen.getByRole("button", { name: /Cumpleaños/ }));
 
     expect(onChange).toHaveBeenLastCalledWith([]);
   });
@@ -53,9 +66,7 @@ describe("WishlistCheckboxList", () => {
   it("shows the error message when passed one", () => {
     function ErrorHarness() {
       const { control } = useHarnessForm([]);
-      return (
-        <WishlistCheckboxList control={control} wishlists={wishlists} error="Elige al menos una lista" />
-      );
+      return <WishlistMultiSelect control={control} wishlists={wishlists} error="Elige al menos una lista" />;
     }
     render(<ErrorHarness />);
 

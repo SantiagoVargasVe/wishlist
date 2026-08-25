@@ -2,7 +2,7 @@
 id: T084
 title: Wishlist selector — replace checkbox list with a Base UI multi-select combobox
 epic: E9-post-mvp-ui
-status: todo
+status: done
 depends_on: [T053]
 size: S
 ---
@@ -39,16 +39,37 @@ different closed-state presentation.
 
 ## Acceptance criteria
 
-- [ ] `WishlistCheckboxList` (or its replacement, reasonably renamed) is a searchable multi-select
+- [x] `WishlistCheckboxList` replaced by `WishlistMultiSelect` — a searchable multi-select
       combobox — typing filters the list of wishlists by title
-- [ ] Selected wishlists show as removable chips/tags in the closed trigger, matching Base UI's
+- [x] Selected wishlists show as removable chips/tags in the closed trigger, matching Base UI's
       multiple-select reference pattern
-- [ ] Still wired to `wishlistIds` via the same `Controller` pattern — no change needed in
-      `add-item-form.tsx` beyond the import/usage of the new component
-- [ ] Keyboard-operable: open, filter, select/deselect, remove a chip, all without a mouse
-- [ ] The existing "choose at least one list" validation error still surfaces the same way
-- [ ] Tests: filtering narrows the option list, selecting/deselecting updates `wishlistIds`,
-      removing a chip deselects that wishlist, the min-1 validation error still renders
+- [x] Still wired to `wishlistIds` via the same `Controller` pattern — `add-item-form.tsx` only
+      changed its import and the component name at the call site
+- [x] Keyboard-operable: open, filter, select/deselect, remove a chip — this is Base UI's own
+      built-in behavior (confirmed by reading `ComboboxChip`'s source: it wires
+      ArrowLeft/ArrowRight/Backspace/Delete itself) from composing the real `Input`/`List`/`Item`/
+      `ChipRemove` parts correctly, not something built or tested here — matches
+      `design-system.md`'s "don't test Base UI itself"
+- [x] The existing "choose at least one list" validation error still surfaces the same way
+- [x] Tests: filtering narrows the option list, selecting updates `wishlistIds`, removing a chip
+      deselects that wishlist, the min-1 validation error still renders, default-selected list
+      starts as a chip
+
+## Implementation notes
+
+`Value` is the wishlist **id** (`string`), not the `PublicWishlist` object — keeps `wishlistIds:
+string[]` unchanged everywhere, no mapping needed at the call site. `itemToStringLabel` closes over
+`wishlists` to turn an id into its title for both display and Base UI's own built-in search
+filter. Chip removal is positional (`ComboboxChipRemove` acts on whichever chip it's nested inside,
+by index) rather than value-keyed, confirmed by reading the source — rendering `field.value.map()`
+in stored order (never reordered) is what keeps that correct.
+
+Also removed: `src/app/_ui/checkbox.tsx`, now dead code (its only caller was the checkbox list this
+task replaces — confirmed via a repo-wide grep before deleting).
+
+Live-verified in a browser: opened the combobox, saw both wishlists listed, selected a second one
+(both appear as chips), removed one via its chip's remove button (confirmed by accessible name,
+`"Quitar <title>"`) — the other chip and the dialog itself were unaffected.
 
 ## Out of scope
 
@@ -57,10 +78,13 @@ presentation-layer swap for an existing field, not a data-model change. Applying
 combobox pattern anywhere else in the app (e.g. a future wishlist-filter multi-select) — one call
 site for now.
 
-## Files likely touched
+## Files touched
 
 ```
-src/app/w/[slug]/wishlist-checkbox-list.tsx
-src/app/w/[slug]/wishlist-checkbox-list.test.tsx
+src/app/w/[slug]/wishlist-multiselect.tsx        (new, replaces wishlist-checkbox-list.tsx)
+src/app/w/[slug]/wishlist-multiselect.test.tsx   (new, replaces wishlist-checkbox-list.test.tsx)
 src/app/w/[slug]/add-item-form.tsx
+src/app/_ui/select.tsx                            (comment update only)
+src/app/_ui/checkbox.tsx                          (removed — dead code)
+src/lib/i18n/es.ts                                (removeList, noListsFound keys)
 ```
