@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { CreateItemInput, UpdateItemInput } from "@/lib/schemas/item";
+import type { CreateWishlistInput, UpdateWishlistInput } from "@/lib/schemas/wishlist";
 import type { PreviewResult } from "@/server/og/preview";
 import type { PublicItem } from "@/server/services/items";
 import type { PublicVisitorWishlist } from "@/server/services/public-wishlist";
+import type { PublicWishlist } from "@/server/services/wishlists";
 
 import { apiFetch } from "./client";
 import { queryKeys } from "./keys";
@@ -108,6 +110,36 @@ export function useRemoveItemFromWishlistMutation() {
   return useMutation({
     mutationFn: ({ itemId, wishlistId }: { itemId: string; wishlistId: string }) =>
       apiFetch<void>(`/api/items/${itemId}/wishlists/${wishlistId}`, { method: "DELETE" }),
+  });
+}
+
+export function useCreateWishlistMutation() {
+  return useMutation({
+    mutationFn: (input: CreateWishlistInput) =>
+      apiFetch<{ wishlist: PublicWishlist }>("/api/wishlists", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+  });
+}
+
+export function useUpdateWishlistMutation() {
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateWishlistInput }) =>
+      apiFetch<{ wishlist: PublicWishlist }>(`/api/wishlists/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }),
+  });
+}
+
+/** `deleteOrphans` becomes `?deleteOrphans=true` — see WishlistErrors.confirmDeleteOrphans. */
+export function useDeleteWishlistMutation() {
+  return useMutation({
+    mutationFn: ({ id, deleteOrphans }: { id: string; deleteOrphans: boolean }) =>
+      apiFetch<void>(`/api/wishlists/${id}${deleteOrphans ? "?deleteOrphans=true" : ""}`, {
+        method: "DELETE",
+      }),
   });
 }
 
