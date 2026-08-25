@@ -55,6 +55,20 @@ export function AddItemForm({
       await create.mutateAsync(input);
       onSuccess();
       router.refresh();
+      // POST /api/items (T033) fires the image download unawaited — a slow
+      // retailer CDN must never delay the save itself (non-negotiable #2),
+      // but that means *this* refresh can genuinely land before the
+      // download has written image_path, showing the new item with no
+      // image until something re-fetches. Rather than making the save wait
+      // (reopening T033's own explicit "never delay the save" criterion),
+      // a couple of delayed catch-up refreshes give the — typically
+      // sub-second — download a real chance to land without the user
+      // reloading manually. Skipped entirely when there was never an image
+      // to download in the first place.
+      if (input.imageUrl) {
+        window.setTimeout(() => router.refresh(), 1500);
+        window.setTimeout(() => router.refresh(), 3500);
+      }
     } catch {
       setError("root", { message: t("wishlist.addItemModal.errors.generic") });
     }
