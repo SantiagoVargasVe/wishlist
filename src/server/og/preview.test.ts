@@ -29,6 +29,15 @@ describe.skipIf(!hasTestDatabase)("getPreview", () => {
   let ctx: TestDb;
 
   beforeAll(async () => {
+    // preview.ts reads config lazily, so setting these before first use is
+    // enough — same pattern jwt.test.ts uses. Unlike safe-fetch.ts, this
+    // service is genuinely app-specific (OG_CACHE_TTL_HOURS is intrinsic to
+    // what og_cache is for), so it's fine for it to read config directly;
+    // it just means its tests need a minimal environment satisfied.
+    process.env.DATABASE_URL = "postgresql://u:p@localhost:5432/db";
+    process.env.AUTH_SECRET = "x".repeat(48);
+    process.env.APP_URL = "http://localhost:3000";
+
     ctx = await createTestDb();
   });
 
