@@ -15,7 +15,11 @@ const MAX_REDIRECTS = 3;
 // tests don't need the app's full environment schema satisfied just to
 // exercise a fetch guard. These match config.schema.ts's own defaults.
 const DEFAULT_TIMEOUT_MS = 5000;
-const DEFAULT_USER_AGENT = "WishlistBot/1.0";
+// Kept in sync with config.schema.ts deliberately: a caller that forgets to
+// pass one would otherwise get a bot-shaped UA and be refused at several
+// retailers' CDN edge, which looks like a broken scrape rather than a missing
+// argument. ADR-0010 explains why this string is shaped the way it is.
+const DEFAULT_USER_AGENT = "WhatsApp/2.0 (+https://github.com/SantiagoVargasVe/wishlist)";
 
 /** Never surfaced to a client — real detail goes to `console.error` instead (security.md). */
 export class SafeFetchError extends Error {
