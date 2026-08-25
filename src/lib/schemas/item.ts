@@ -28,6 +28,9 @@ export const createItemSchema = z
     url: z.url("Enter a valid URL"),
     title: z.string().trim().min(1, "Enter a title").max(300),
     notes: z.string().trim().max(2000).optional(),
+    // The image shown live during preview (T032) — stored as `source_image_url`
+    // and handed to `downloadItemImage()` (T033), never displayed from here directly.
+    imageUrl: z.url().optional(),
     priceAmount: priceAmountSchema.optional(),
     priceCurrency: priceCurrencySchema.optional(),
     wishlistIds: z.array(z.uuid()).min(1, "Choose at least one list"),

@@ -88,6 +88,7 @@ export async function createItem(
         url: input.url,
         title: input.title,
         notes: input.notes,
+        sourceImageUrl: input.imageUrl,
         ...priceFields(input.priceAmount, input.priceCurrency),
       })
       .returning(itemColumns);

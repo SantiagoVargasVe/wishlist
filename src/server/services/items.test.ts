@@ -189,6 +189,23 @@ describe.skipIf(!hasTestDatabase)("item CRUD", () => {
       expect(item.priceAmount).toBeNull();
       expect(item.priceCurrency).toBeNull();
     });
+
+    it("stores the scraped image url as source_image_url, unfetched", async () => {
+      // Downloading it (T033's downloadItemImage) is triggered by the route
+      // handler, not this service — imagePath stays null here regardless.
+      const item = await createItem(
+        ownerId,
+        {
+          url: "https://example.com/p",
+          title: "Headphones",
+          imageUrl: "https://cdn.example.com/photo.jpg",
+          wishlistIds: [listA],
+        },
+        ctx.db,
+      );
+      expect(item.sourceImageUrl).toBe("https://cdn.example.com/photo.jpg");
+      expect(item.imagePath).toBeNull();
+    });
   });
 
   describe("updateItem", () => {

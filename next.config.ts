@@ -5,8 +5,8 @@ const nextConfig: NextConfig = {
   // Standalone output keeps the production image small — see ADR-0007.
   output: "standalone",
 
-  // Native module — cannot be bundled, must be required at runtime.
-  serverExternalPackages: ["@node-rs/argon2"],
+  // Native modules — cannot be bundled, must be required at runtime.
+  serverExternalPackages: ["@node-rs/argon2", "sharp"],
 
   // Next prepares an edge-compatible bundle of instrumentation.ts — "Next.js
   // calls register in all environments" per its own docs — and Next dev also

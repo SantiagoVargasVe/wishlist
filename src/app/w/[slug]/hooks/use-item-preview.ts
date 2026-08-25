@@ -13,10 +13,13 @@ import type { CreateItemInput } from "@/lib/schemas/item";
  *
  * Debounces the raw `url` field, only queries once it's a schema-valid URL
  * (typing "https://exa" shouldn't spend a preview-rate-limit slot), and
- * prefills title/price/currency **once per resolved URL** — tracked by a
- * ref, not a render-time check, so a user who edits a prefilled title right
- * after the scrape lands doesn't have their edit silently clobbered by a
- * later render of the same query result.
+ * prefills title/price/currency/imageUrl **once per resolved URL** —
+ * tracked by a ref, not a render-time check, so a user who edits a
+ * prefilled title right after the scrape lands doesn't have their edit
+ * silently clobbered by a later render of the same query result.
+ * `imageUrl` isn't rendered from the form itself (`ItemPreviewField` reads
+ * it straight off `preview.data`) — it only needs to land in form state so
+ * submit actually sends it to `downloadItemImage()` (T033).
  */
 export function useItemPreview(url: string, setValue: UseFormSetValue<CreateItemInput>) {
   const debouncedUrl = useDebouncedValue(url, 500);
@@ -29,6 +32,7 @@ export function useItemPreview(url: string, setValue: UseFormSetValue<CreateItem
     prefilledFor.current = validUrl;
 
     if (preview.data.title) setValue("title", preview.data.title);
+    if (preview.data.imageUrl) setValue("imageUrl", preview.data.imageUrl);
     if (preview.data.price && preview.data.currency) {
       setValue("priceAmount", preview.data.price);
       setValue("priceCurrency", preview.data.currency as "COP" | "USD");
