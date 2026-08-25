@@ -262,6 +262,23 @@ export async function safeFetch(
           continue;
         }
 
+        // An error response carries an error page, not content. Retailers
+        // serve their 403 as real `text/html` (a CDN "Access Denied" page),
+        // so without this it passes the content-type check below and reaches
+        // the parser as though it were a product page — which is exactly how
+        // `{"title": "Access Denied", "ogStatus": "ok"}` ended up cached for a
+        // week in production (T088). The status reaches `console.error` only;
+        // `SafeFetchError` normalizes the client-facing message, because
+        // 403-vs-500-vs-timeout tells an attacker about internal state
+        // (security.md § Defense in depth).
+        //
+        // Checked after the redirect branch, so a 3xx *with* a `location` is
+        // still followed. A 3xx without one is broken, not a redirect, and
+        // lands here.
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          throw new SafeFetchError(`upstream responded ${response.statusCode}`);
+        }
+
         // A *missing* header is "unknown," not "wrong" — confirmed live
         // against Amazon's real CDN, which sometimes serves the actual
         // product page (a real `<!doctype html>` body, 1.4MB of it) with no
