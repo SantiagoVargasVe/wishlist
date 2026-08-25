@@ -65,6 +65,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 | **E5** claims | Claim schema, endpoints, tokens, rate limits, owner filtering | T040–T043 |
 | **E6** frontend | Shell, list page, modals, filters, share CTA, OG metadata | T050–T058 |
 | **E7** deploy | Dockerfile, CI image build, pull-timer deploy, WAF rules | T060–T064 |
+| **E8** invites | Self-service invite minting | T070 |
 
 ## Task index
 
@@ -122,6 +123,11 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 
 T061–T063 implement [ADR-0007](../docs/adr/0007-deploy-via-ghcr-and-pull-timer.md) and are
 blocked on T001 — there's no application to build an image from yet.
+
+**E8 — Invites**
+- `T070` Self-service invite minting — any logged-in user can mint their own invite code,
+  per [ADR-0002](../docs/adr/0002-invite-only-registration.md)'s own "owner-facing UI is a later
+  nice-to-have"
 
 Five tasks are fully written as worked examples — the highest-risk and most-referenced ones.
 The rest are one-liners here; expand them into files as you pick them up, following the pattern.
