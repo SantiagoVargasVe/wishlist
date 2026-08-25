@@ -35,13 +35,20 @@ export function AddItemForm({
     setValue,
     watch,
     setError,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isValid },
   } = useForm<CreateItemInput>({
     resolver: zodResolver(createItemSchema),
     defaultValues: { url: "", title: "", notes: "", wishlistIds: [currentWishlistId] },
+    // "onTouched" rather than "onChange": still gives an accurate, live
+    // `isValid` for the Save button (accessing `formState.isValid` makes RHF
+    // validate once on mount and keep it current), but doesn't flash a
+    // validation error on the url field the instant the user types a first
+    // character — only once they've blurred it at least once.
+    mode: "onTouched",
   });
 
   const preview = useItemPreview(watch("url"), setValue);
+  const fieldsDisabled = !preview.fieldsEnabled;
 
   const onSubmit = handleSubmit(async (input) => {
     try {
@@ -57,26 +64,30 @@ export function AddItemForm({
     <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
       <ItemPreviewField register={register} error={errors.url?.message} preview={preview} />
       <Field label={t("wishlist.addItemModal.itemTitle")} error={errors.title?.message}>
-        <Input {...register("title")} />
+        <Input {...register("title")} disabled={fieldsDisabled} />
       </Field>
       <Field label={t("wishlist.addItemModal.notes")} error={errors.notes?.message}>
         {/* Same "" → undefined reasoning as priceAmount below: an
             untouched/cleared field must submit as "no notes", not a stored
             empty string. */}
-        <Input {...register("notes", { setValueAs: (v: string) => (v === "" ? undefined : v) })} />
+        <Input
+          {...register("notes", { setValueAs: (v: string) => (v === "" ? undefined : v) })}
+          disabled={fieldsDisabled}
+        />
       </Field>
-      <PriceFields control={control} errors={errors} />
+      <PriceFields control={control} errors={errors} disabled={fieldsDisabled} />
       <WishlistMultiSelect
         wishlists={wishlists}
         control={control}
         error={errors.wishlistIds?.message}
+        disabled={fieldsDisabled}
       />
       {errors.root?.message && (
         <p className="text-sm text-destructive" role="alert">
           {errors.root.message}
         </p>
       )}
-      <Button type="submit" disabled={isSubmitting}>
+      <Button type="submit" disabled={!isValid || isSubmitting}>
         {isSubmitting ? t("wishlist.addItemModal.submitting") : t("wishlist.addItemModal.submit")}
       </Button>
     </form>

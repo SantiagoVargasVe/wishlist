@@ -27,10 +27,12 @@ export function WishlistMultiSelect({
   wishlists,
   control,
   error,
+  disabled,
 }: {
   wishlists: PublicWishlist[];
   control: Control<CreateItemInput>;
   error?: string;
+  disabled?: boolean;
 }) {
   const titleOf = (id: string) => wishlists.find((w) => w.id === id)?.title ?? id;
 
@@ -49,6 +51,7 @@ export function WishlistMultiSelect({
             value={field.value}
             onValueChange={field.onChange}
             itemToStringLabel={titleOf}
+            disabled={disabled}
           >
             <Combobox.Chips className="flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1.5 focus-within:ring-2 focus-within:ring-ring">
               {field.value.map((id) => (

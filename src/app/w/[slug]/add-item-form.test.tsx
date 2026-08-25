@@ -12,8 +12,9 @@ vi.mock("@/lib/api/queries", () => ({
   useCreateItemMutation: () => ({ mutateAsync: mutateAsyncMock }),
 }));
 
+const useItemPreviewMock = vi.fn();
 vi.mock("./hooks/use-item-preview", () => ({
-  useItemPreview: () => ({ data: undefined, isFetching: false }),
+  useItemPreview: (...args: unknown[]) => useItemPreviewMock(...args),
 }));
 
 import type { PublicWishlist } from "@/server/services/wishlists";
@@ -26,9 +27,14 @@ const wishlists: PublicWishlist[] = [
   { id: WISHLIST_ID, slug: "s1", title: "Cumpleaños", isDefault: true, hideClaimsFromOwner: false },
 ];
 
+/** The common "a scrape already resolved (or the URL is being edited after that point)" state — most tests render from here. */
+const RESOLVED_PREVIEW = { data: undefined, isFetching: false, fieldsEnabled: true };
+const LOCKED_PREVIEW = { data: undefined, isFetching: false, fieldsEnabled: false };
+
 beforeEach(() => {
   mutateAsyncMock.mockReset();
   refreshMock.mockClear();
+  useItemPreviewMock.mockReturnValue(RESOLVED_PREVIEW);
 });
 
 afterEach(() => {
@@ -76,12 +82,62 @@ describe("AddItemForm", () => {
     expect(refreshMock).not.toHaveBeenCalled();
   });
 
-  it("shows a validation error and never calls the API when the url is missing", async () => {
-    render(<AddItemForm wishlists={wishlists} currentWishlistId={WISHLIST_ID} onSuccess={vi.fn()} />);
-    await userEvent.type(screen.getByLabelText("Título"), "Bicicleta");
-    await userEvent.click(screen.getByRole("button", { name: "Añadir" }));
+  describe("field gating (T082)", () => {
+    it("disables title/notes/price/lists until the URL preview has settled", () => {
+      useItemPreviewMock.mockReturnValue(LOCKED_PREVIEW);
+      render(<AddItemForm wishlists={wishlists} currentWishlistId={WISHLIST_ID} onSuccess={vi.fn()} />);
 
-    expect(await screen.findByText("Enter a valid URL")).toBeInTheDocument();
-    expect(mutateAsyncMock).not.toHaveBeenCalled();
+      expect(screen.getByLabelText("Título")).toBeDisabled();
+      expect(screen.getByLabelText("Notas")).toBeDisabled();
+      expect(screen.getByLabelText("Precio")).toBeDisabled();
+      expect(screen.getByRole("combobox", { name: /listas/i })).toBeDisabled();
+    });
+
+    it("enables the rest of the form once the preview has settled, even the URL field itself stays enabled throughout", () => {
+      useItemPreviewMock.mockReturnValue(RESOLVED_PREVIEW);
+      render(<AddItemForm wishlists={wishlists} currentWishlistId={WISHLIST_ID} onSuccess={vi.fn()} />);
+
+      expect(screen.getByLabelText("Enlace del producto")).toBeEnabled();
+      expect(screen.getByLabelText("Título")).toBeEnabled();
+      expect(screen.getByLabelText("Notas")).toBeEnabled();
+      expect(screen.getByLabelText("Precio")).toBeEnabled();
+    });
+
+    it("keeps fields unlocked even when the scrape itself failed — a bad OG fetch never blocks manual entry", () => {
+      // ogStatus: "failed" still means fieldsEnabled: true — settling, not
+      // succeeding, is what unlocks the form (non-negotiable #2).
+      useItemPreviewMock.mockReturnValue({
+        data: { ogStatus: "failed" },
+        isFetching: false,
+        fieldsEnabled: true,
+      });
+      render(<AddItemForm wishlists={wishlists} currentWishlistId={WISHLIST_ID} onSuccess={vi.fn()} />);
+
+      expect(screen.getByLabelText("Título")).toBeEnabled();
+    });
+  });
+
+  describe("Save button validity gating (T082)", () => {
+    it("starts disabled — url and title are both required and empty", () => {
+      render(<AddItemForm wishlists={wishlists} currentWishlistId={WISHLIST_ID} onSuccess={vi.fn()} />);
+
+      expect(screen.getByRole("button", { name: "Añadir" })).toBeDisabled();
+    });
+
+    it("stays disabled with a valid url but no title yet", async () => {
+      render(<AddItemForm wishlists={wishlists} currentWishlistId={WISHLIST_ID} onSuccess={vi.fn()} />);
+
+      await userEvent.type(screen.getByLabelText("Enlace del producto"), "https://example.com/x");
+
+      expect(screen.getByRole("button", { name: "Añadir" })).toBeDisabled();
+    });
+
+    it("enables once url, title, and at least one list are all valid", async () => {
+      render(<AddItemForm wishlists={wishlists} currentWishlistId={WISHLIST_ID} onSuccess={vi.fn()} />);
+
+      await fillRequiredFields();
+
+      expect(screen.getByRole("button", { name: "Añadir" })).toBeEnabled();
+    });
   });
 });

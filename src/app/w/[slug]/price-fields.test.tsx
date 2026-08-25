@@ -7,11 +7,11 @@ import type { CreateItemInput } from "@/lib/schemas/item";
 
 import { PriceFields } from "./price-fields";
 
-function Harness({ currency }: { currency?: "COP" | "USD" }) {
+function Harness({ currency, disabled }: { currency?: "COP" | "USD"; disabled?: boolean }) {
   const { control, formState } = useForm<CreateItemInput>({
     defaultValues: { url: "", title: "", wishlistIds: [], priceCurrency: currency },
   });
-  return <PriceFields control={control} errors={formState.errors} />;
+  return <PriceFields control={control} errors={formState.errors} disabled={disabled} />;
 }
 
 describe("PriceFields — price input masking (T083)", () => {
@@ -83,5 +83,12 @@ describe("PriceFields — price input masking (T083)", () => {
     await userEvent.type(price, "49.99");
 
     expect(price).toHaveValue("49.99");
+  });
+
+  it("disables both the amount and currency fields when disabled (T082)", () => {
+    render(<Harness currency="USD" disabled />);
+
+    expect(screen.getByLabelText("Precio")).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Moneda" })).toBeDisabled();
   });
 });

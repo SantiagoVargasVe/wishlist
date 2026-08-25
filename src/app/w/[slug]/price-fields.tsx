@@ -18,9 +18,11 @@ type PriceFieldValues = { priceAmount?: string; priceCurrency?: "COP" | "USD" };
 export function PriceFields<T extends PriceFieldValues>({
   control,
   errors,
+  disabled,
 }: {
   control: Control<T>;
   errors: FieldErrors<T>;
+  disabled?: boolean;
 }) {
   // Masking needs the *other* field's live value — the display format
   // (period vs. comma thousands) depends on whichever currency is currently
@@ -45,6 +47,7 @@ export function PriceFields<T extends PriceFieldValues>({
             return (
               <Input
                 inputMode="decimal"
+                disabled={disabled}
                 value={currency ? formatAmountInput(raw, currency) : raw}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -65,7 +68,11 @@ export function PriceFields<T extends PriceFieldValues>({
           name={"priceCurrency" as Path<T>}
           control={control}
           render={({ field }) => (
-            <Select.Root value={(field.value as string | null | undefined) ?? null} onValueChange={field.onChange}>
+            <Select.Root
+              value={(field.value as string | null | undefined) ?? null}
+              onValueChange={field.onChange}
+              disabled={disabled}
+            >
               <SelectTrigger placeholder={t("wishlist.addItemModal.currency")} />
               <SelectContent>
                 <Select.Item value="COP">COP</Select.Item>
