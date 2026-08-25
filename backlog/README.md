@@ -67,6 +67,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 | **E7** deploy | Dockerfile, CI image build, pull-timer deploy, WAF rules | T060–T064 |
 | **E8** invites | Self-service invite minting | T070 |
 | **E9** post-mvp-ui | Card layout, image-after-add race, form UX gating, price masking, multi-select lists | T080–T084 |
+| **E10** preview-reliability | Why pasted links so often yield no image, and what to do about it | T085–T087 |
 
 ## Task index
 
@@ -149,3 +150,59 @@ found by actually using it.
 
 Five tasks are fully written as worked examples — the highest-risk and most-referenced ones.
 The rest are one-liners here; expand them into files as you pick them up, following the pattern.
+
+**E10 — Preview reliability**
+
+Real usage showed most pasted links produce no image — the one field that can't be typed by
+hand. Investigated 2026-08-25; the causes turned out to be three unrelated things, not one.
+
+- `T085` Parse schema.org `ProductGroup`, not just `Product` — recovers prices we already have
+  in the HTML and silently drop
+- `T086` Let the user supply an image — paste a URL or upload a file — when the scrape finds
+  none. The only fix that works on *every* site, including ones we can't fetch at all
+- `T087` Send a link-preview `User-Agent` so walled retailers respond — **done**, see
+  [ADR-0010](../docs/adr/0010-preview-user-agent.md)
+
+**The bot wall — resolved by T087, but read this before touching it.** Several retailers serve
+their real HTML only to a narrow allowlist of link-preview crawlers, decided purely on
+`User-Agent` at the CDN edge, before the request reaches their origin:
+
+| What we send | What comes back |
+|---|---|
+| `WishlistBot/1.0` | `403 Access Denied`, ~450 bytes |
+| a browser UA, or none | `200` — but a JS bot-manager challenge page, not the product |
+| `WhatsApp/…` | `200`, the full page, `og:image` present |
+
+Measured across Zara, Bershka, Pull&Bear, Stradivarius, Massimo Dutti and Éxito — all identical.
+`facebookexternalhit`, `Twitterbot`, `Slackbot`, `Discordbot`, `TelegramBot`, `LinkedInBot` and
+`Applebot` are all refused too, so there is **no honest self-identifying User-Agent that works**.
+H&M and Uniqlo refuse every UA including WhatsApp's, and Adidas returns a stub to all of them.
+Amazon, MercadoLibre, Falabella, Shein and Nike are unaffected either way.
+
+Two things follow, and both still matter:
+
+- The middle row is a trap. A browser-like UA returns HTTP 200 and parses without error, so it
+  reads as success while carrying no metadata at all — and `getPreview()` would cache that as
+  `ogStatus: "ok"` for `OG_CACHE_TTL_HOURS` (7 days). Never "fix" a bot wall by sending a
+  browser UA; it is worse than sending nothing.
+- Getting past it means claiming to be someone else's crawler — a judgement call about this
+  deployment, not a technical one. T087 made that call for a family-scale self-hosted install
+  and [ADR-0010](../docs/adr/0010-preview-user-agent.md) states the tradeoff plainly, including
+  why it is **not** a recommendation at scale. `OG_USER_AGENT=WishlistBot/1.0` opts back out.
+- T087 does **not** make T086 redundant. H&M and Uniqlo refuse every UA tried, so a manual image
+  path stays the only universal answer.
+
+Two things that look like solutions and are not, both checked rather than assumed:
+
+- **TLS fingerprinting is irrelevant here.** A real Chrome-124 TLS fingerprint (via `curl_cffi`)
+  still gets the challenge; a WhatsApp UA over plain curl TLS gets the page. Only the
+  User-Agent moves the needle. And the challenge is genuine JavaScript, so no HTTP client passes
+  it however well disguised — that takes a browser engine.
+- **Paid unblocking services aren't the industry's answer at this scale.** Probing a funded
+  commercial competitor showed it fetching from a datacenter IP with a spoofed Edge User-Agent —
+  no residential proxy, no vendor. Replaying that fingerprint against Zara returns the challenge,
+  so it can't preview these sites either. Meanwhile the services themselves start around $49/mo
+  (Bright Data's unlocker, ~$499/mo), and Microlink's free tier returns `EPROXYNEEDED` on Zara
+  specifically. Routing every pasted URL through a third party would also tell that vendor what
+  the family is buying — against the grain of
+  [ADR-0004](../docs/adr/0004-store-images.md)'s reason for storing images locally.
