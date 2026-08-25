@@ -17,7 +17,7 @@ export function OwnerView({
         <AddItemModal wishlists={wishlists} currentWishlistId={wishlist.id} />
       </div>
       <div className="mt-6">
-        <ItemGrid items={wishlist.items} />
+        <ItemGrid items={wishlist.items} wishlistId={wishlist.id} wishlists={wishlists} />
       </div>
     </div>
   );

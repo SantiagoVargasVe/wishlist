@@ -3,6 +3,7 @@ export const es = {
     appName: "Wishlist",
     tagline: "Guarda lo que quieres y compártelo con quien quieras.",
     dismiss: "Cerrar",
+    cancel: "Cancelar",
   },
   theme: {
     light: "claro",
@@ -71,6 +72,35 @@ export const es = {
       submitting: "Añadiendo…",
       errors: {
         generic: "No se pudo añadir el artículo. Intenta de nuevo.",
+      },
+    },
+    editItem: "Editar",
+    editItemModal: {
+      title: "Editar artículo",
+      submit: "Guardar",
+      submitting: "Guardando…",
+      priceHint: "Déjalo vacío para no cambiar el precio.",
+      errors: {
+        generic: "No se pudo guardar los cambios. Intenta de nuevo.",
+      },
+    },
+    removeItem: "Quitar",
+    removeErrors: {
+      generic: "No se pudo quitar el artículo. Intenta de nuevo.",
+    },
+    removeLastListDialog: {
+      title: "¿Quitar este artículo?",
+      description:
+        "Esta es la única lista donde está este artículo — quitarlo lo eliminará por completo.",
+      confirm: "Quitar de todos modos",
+    },
+    deleteItem: "Eliminar",
+    deleteItemDialog: {
+      title: "¿Eliminar este artículo?",
+      description: "Se eliminará \"{title}\" de todas tus listas. Esta acción no se puede deshacer.",
+      confirm: "Eliminar",
+      errors: {
+        generic: "No se pudo eliminar el artículo. Intenta de nuevo.",
       },
     },
   },
