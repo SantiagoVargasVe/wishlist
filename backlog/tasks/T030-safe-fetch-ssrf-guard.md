@@ -37,6 +37,41 @@ denylist and the reasoning behind each rule.
       returns public then private), non-HTTP schemes, oversize body, timeout, wrong content-type
 - [ ] No network access in tests — stub the resolver and the socket layer
 
+## Bugs found via live verification (after this task's own tests were already green)
+
+A logged-in user pasting a real Amazon product link got `ogStatus: "ok"` with every field
+null — no title, no image, no price, indistinguishable from "this page genuinely has no
+metadata." It wasn't. Two real bugs in `defaultTransport`, invisible to every test here because
+they all stub the transport or the socket layer, per this task's own "no network access in
+tests" rule — confirmed against Amazon's real CDN, not assumed:
+
+- **No response decompression, ever.** Amazon's CloudFront gzips its HTML response even when the
+  request sends no `Accept-Encoding` at all — compression isn't reliably opt-in in practice.
+  `defaultTransport` handed the raw compressed bytes straight through; `.toString("utf-8")`
+  downstream (`preview.ts`) turned them into garbage, and the parser correctly found zero matching
+  tags in what wasn't real HTML. Fixed by declaring `Accept-Encoding: gzip, deflate, br` and
+  piping the response through the matching `zlib` decompressor based on the actual
+  `content-encoding` header returned — never trusting that a server won't compress just because
+  it wasn't asked to.
+- **A missing `Content-Type` header was rejected the same as a wrong one.** Amazon sometimes
+  serves the genuine product page — a real `<!doctype html>` body, 1.4MB of it — with no
+  `Content-Type` header at all. The allowlist check treated absence as failure. Fixed to treat a
+  *missing* header as unknown (allowed through) while still rejecting one that's *present* and
+  doesn't match — a present-but-wrong content type is a real signal; silence isn't.
+
+Both fixed in `fix/T030-gzip-decompression`, with new tests exercising the real `zlib` module and
+a real loopback server (the existing pattern this file's tests already use for the pinned-`lookup`
+wiring), not mocks of the fix itself.
+
+**Not a bug, a separate limitation, left alone:** even after both fixes, this specific Amazon page
+has no `og:image`, `twitter:image`, or JSON-LD `Product` block at all for a generically-identified
+client — the image lives only in a `data-a-dynamic-image` JSON attribute, Amazon's own
+proprietary lazy-load format, not something any standards-based parser would recognize. (WhatsApp
+renders a card for the same link because Amazon almost certainly allowlists WhatsApp's crawler
+User-Agent for richer metadata — a policy on their end, not a bug in this pipeline.) Parsing that
+attribute as an Amazon-specific fallback is a real, separate feature decision, not a bug fix —
+worth its own task if it turns out to matter, not folded in here.
+
 ## Out of scope
 
 OG parsing (T031), the preview endpoint (T032), the image pipeline (T033). This task delivers the
