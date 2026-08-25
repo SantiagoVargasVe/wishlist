@@ -3,12 +3,14 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 
 vi.mock("../net/safe-fetch", () => ({ safeFetch: vi.fn() }));
 vi.mock("./parser", () => ({ parseProductMetadata: vi.fn() }));
+vi.mock("./vendors/mercadolibre/resolve", () => ({ resolveMercadoLibrePreview: vi.fn() }));
 
 import { ogCache } from "../db/schema";
 import { createTestDb, hasTestDatabase, type TestDb } from "../db/test-support";
 import { safeFetch } from "../net/safe-fetch";
 import { parseProductMetadata } from "./parser";
 import { getPreview } from "./preview";
+import { resolveMercadoLibrePreview } from "./vendors/mercadolibre/resolve";
 
 const HTML_RESPONSE = {
   body: Buffer.from("<html></html>"),
@@ -47,11 +49,16 @@ describe.skipIf(!hasTestDatabase)("getPreview", () => {
 
   beforeEach(async () => {
     await ctx.sql`TRUNCATE og_cache RESTART IDENTITY CASCADE`;
+    // Default: not a MercadoLibre URL (or credentials unset) — falls through
+    // to the generic safeFetch path every existing test below exercises.
+    // Overridden per-test in the "MercadoLibre catalog resolution" block.
+    vi.mocked(resolveMercadoLibrePreview).mockResolvedValue(null);
   });
 
   afterEach(() => {
     vi.mocked(safeFetch).mockReset();
     vi.mocked(parseProductMetadata).mockReset();
+    vi.mocked(resolveMercadoLibrePreview).mockReset();
   });
 
   it("fetches and parses on a cache miss, then writes the cache", async () => {
@@ -157,5 +164,80 @@ describe.skipIf(!hasTestDatabase)("getPreview", () => {
     const result = await getPreview("https://example.com/cop", ctx.db);
 
     expect(result).toMatchObject({ price: "1300000", currency: "COP" });
+  });
+
+  describe("MercadoLibre catalog resolution (T036)", () => {
+    it("uses the MercadoLibre result directly, without ever calling safeFetch", async () => {
+      vi.mocked(resolveMercadoLibrePreview).mockResolvedValue({
+        title: "Celular Samsung Galaxy A15",
+        imageUrl: "https://http2.mlstatic.com/pic.jpg",
+        price: "899000",
+        currency: "COP",
+        siteName: "www.mercadolibre.com.co",
+        ogStatus: "ok",
+      });
+
+      const result = await getPreview(
+        "https://www.mercadolibre.com.co/producto/p/MCO43708014",
+        ctx.db,
+      );
+
+      expect(result.title).toBe("Celular Samsung Galaxy A15");
+      expect(safeFetch).not.toHaveBeenCalled();
+      expect(parseProductMetadata).not.toHaveBeenCalled();
+    });
+
+    it("caches a successful MercadoLibre resolution the same as a generic scrape", async () => {
+      vi.mocked(resolveMercadoLibrePreview).mockResolvedValue({
+        title: "Widget",
+        imageUrl: null,
+        price: null,
+        currency: null,
+        siteName: "www.mercadolibre.com.co",
+        ogStatus: "ok",
+      });
+
+      await getPreview("https://www.mercadolibre.com.co/producto/p/MCO1", ctx.db);
+      const rows = await ctx.db.select().from(ogCache);
+
+      expect(rows).toHaveLength(1);
+    });
+
+    it("does not cache a failed MercadoLibre resolution", async () => {
+      vi.mocked(resolveMercadoLibrePreview).mockResolvedValue({
+        title: null,
+        imageUrl: null,
+        price: null,
+        currency: null,
+        siteName: null,
+        ogStatus: "failed",
+      });
+
+      await getPreview("https://www.mercadolibre.com.co/producto/p/MCO1", ctx.db);
+      const rows = await ctx.db.select().from(ogCache);
+
+      expect(rows).toHaveLength(0);
+    });
+
+    it("falls through to the generic scrape when resolveMercadoLibrePreview returns null", async () => {
+      vi.mocked(resolveMercadoLibrePreview).mockResolvedValue(null);
+      vi.mocked(safeFetch).mockResolvedValue(HTML_RESPONSE);
+      vi.mocked(parseProductMetadata).mockReturnValue({ ...EMPTY_PARSED, title: "Generic" });
+
+      const result = await getPreview("https://example.com/not-meli", ctx.db);
+
+      expect(result.title).toBe("Generic");
+      expect(safeFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("treats resolveMercadoLibrePreview throwing the same as returning null — falls through rather than failing the whole preview", async () => {
+      vi.mocked(resolveMercadoLibrePreview).mockRejectedValue(new Error("unexpected"));
+      vi.mocked(safeFetch).mockResolvedValue(HTML_RESPONSE);
+      vi.mocked(parseProductMetadata).mockReturnValue({ ...EMPTY_PARSED, title: "Generic" });
+
+      const result = await getPreview("https://www.mercadolibre.com.co/producto/p/MCO1", ctx.db);
+
+      expect(result.title).toBe("Generic");
+    });
   });
 });

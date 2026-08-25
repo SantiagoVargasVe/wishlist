@@ -97,8 +97,9 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 - `T033` Image download → sharp → `data/images/` + `/media/:filename` — **done**
 - `T034` Weekly orphan image sweep — **done**
 - `T035` Vendor-specific image extraction (Amazon) — **done**
-- `T036` MercadoLibre product data via their official API — needs `MELI_CLIENT_ID`/`MELI_CLIENT_SECRET`
-  registered manually first, same shape as T060
+- `T036` MercadoLibre catalog-product data via their official API (`.../p/MCO...` links only —
+  individual listing links stay unresolved, `GET /items/:id` is blocked for app-level tokens,
+  confirmed live) — **done**
 
 **E5 — Claims**
 - `T040` Schema + claim/unclaim endpoints, unique constraint, 409 on race — **done**
