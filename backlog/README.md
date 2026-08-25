@@ -66,6 +66,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 | **E6** frontend | Shell, list page, modals, filters, share CTA, OG metadata | T050–T058 |
 | **E7** deploy | Dockerfile, CI image build, pull-timer deploy, WAF rules | T060–T064 |
 | **E8** invites | Self-service invite minting | T070 |
+| **E9** post-mvp-ui | Card layout, image-after-add race, form UX gating, price masking, multi-select lists | T080–T084 |
 
 ## Task index
 
@@ -132,6 +133,17 @@ blocked on T001 — there's no application to build an image from yet.
 - `T070` Self-service invite minting — any logged-in user can mint their own invite code,
   per [ADR-0002](../docs/adr/0002-invite-only-registration.md)'s own "owner-facing UI is a later
   nice-to-have" — **done**
+
+**E9 — Post-MVP UI polish**
+
+Real usage of the deployed app (2026-08-25) surfaced these — not part of the original design,
+found by actually using it.
+
+- `T080` Item card: fixed height, contained (not cropped) images, visible currency code
+- `T081` Fix: a newly-added item's image doesn't appear until the page is reloaded
+- `T082` Add-item form: gate other fields behind a valid URL, gate Save behind form validity
+- `T083` Price input: thousands-separator masking while typing
+- `T084` Wishlist multi-select: replace the checkbox list with a Base UI combobox
 
 Five tasks are fully written as worked examples — the highest-risk and most-referenced ones.
 The rest are one-liners here; expand them into files as you pick them up, following the pattern.
