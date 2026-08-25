@@ -69,16 +69,35 @@ export async function defaultResolveHost(hostname: string): Promise<ResolvedAddr
  * the actual fix for DNS-rebinding TOCTOU rather than a check that a later
  * step can quietly bypass. `hostname`/`headers`/TLS SNI still come from the
  * original URL, since only the connection target is overridden.
+ *
+ * Two return shapes, not one: Node 20+ enables `autoSelectFamily` (Happy
+ * Eyeballs) by default, and when it's racing connections it calls `lookup`
+ * with `{ all: true }` expecting `callback(err, [{ address, family }])` —
+ * the single-address `callback(err, address, family)` form only fires when
+ * `all` isn't set. Confirmed empirically (a real fetch to a public host
+ * threw `ERR_INVALID_IP_ADDRESS: Invalid IP address: undefined` against the
+ * single-shape-only version); every unit test here stubs `transport`
+ * entirely, so this branch was invisible until a real request exercised it.
  */
 export function pinnedLookup(
   address: string,
   family: 4 | 6,
 ): (
   hostname: string,
-  options: unknown,
-  callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void,
+  options: { all?: boolean },
+  callback: (
+    err: NodeJS.ErrnoException | null,
+    address: string | { address: string; family: number }[],
+    family?: number,
+  ) => void,
 ) => void {
-  return (_hostname, _options, callback) => callback(null, address, family);
+  return (_hostname, options, callback) => {
+    if (options?.all) {
+      callback(null, [{ address, family }]);
+    } else {
+      callback(null, address, family);
+    }
+  };
 }
 
 export const defaultTransport: Transport = ({ url, connectAddress, family, timeoutMs, userAgent }) => {

@@ -62,6 +62,16 @@ function metaContent($: CheerioAPI, selector: string): string | undefined {
   return $(selector).first().attr("content")?.trim() || undefined;
 }
 
+/**
+ * The OG spec calls for `property="og:x"`, but plenty of real sites (MDN's
+ * own docs pages, confirmed live while testing this against a real fetch)
+ * use `name="og:x"` instead. Checking both costs nothing and is strictly
+ * more correct than trusting every site to follow the spec.
+ */
+function ogMeta($: CheerioAPI, key: string): string | undefined {
+  return metaContent($, `meta[property="og:${key}"]`) ?? metaContent($, `meta[name="og:${key}"]`);
+}
+
 function findProductNode(node: unknown): JsonLdProduct | null {
   if (Array.isArray(node)) {
     for (const item of node) {
@@ -203,16 +213,13 @@ function extractPrice(
 
 function extractTitle($: CheerioAPI, product: JsonLdProduct | null): string | null {
   const raw =
-    metaContent($, 'meta[property="og:title"]') ??
-    metaContent($, 'meta[name="twitter:title"]') ??
-    product?.name ??
-    $("title").first().text();
+    ogMeta($, "title") ?? metaContent($, 'meta[name="twitter:title"]') ?? product?.name ?? $("title").first().text();
   return clean(raw, MAX_TITLE_LENGTH);
 }
 
 function extractDescription($: CheerioAPI, product: JsonLdProduct | null): string | null {
   const raw =
-    metaContent($, 'meta[property="og:description"]') ??
+    ogMeta($, "description") ??
     metaContent($, 'meta[name="twitter:description"]') ??
     product?.description ??
     metaContent($, 'meta[name="description"]');
@@ -222,8 +229,8 @@ function extractDescription($: CheerioAPI, product: JsonLdProduct | null): strin
 /** Not every site emits an absolute image URL despite the spec asking for one. */
 function extractImageUrl($: CheerioAPI, product: JsonLdProduct | null, pageUrl: string): string | null {
   const raw =
-    metaContent($, 'meta[property="og:image:secure_url"]') ??
-    metaContent($, 'meta[property="og:image"]') ??
+    ogMeta($, "image:secure_url") ??
+    ogMeta($, "image") ??
     metaContent($, 'meta[name="twitter:image"]') ??
     metaContent($, 'meta[name="twitter:image:src"]') ??
     jsonLdImage(product);
@@ -237,7 +244,7 @@ function extractImageUrl($: CheerioAPI, product: JsonLdProduct | null, pageUrl: 
 }
 
 function extractSiteName($: CheerioAPI, pageUrl: string): string | null {
-  const raw = metaContent($, 'meta[property="og:site_name"]');
+  const raw = ogMeta($, "site_name");
   if (raw) return clean(raw, MAX_SITE_NAME_LENGTH);
 
   try {

@@ -7,6 +7,7 @@ import {
   doublePrecision,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   primaryKey,
@@ -88,6 +89,21 @@ export const rateLimits = pgTable(
   },
   (table) => [index("rate_limits_updated_at_idx").on(table.updatedAt)],
 );
+
+/**
+ * Caches a successful OG scrape by URL hash, so re-pasting the same link is
+ * free. `url_hash` is the sha256 of the URL with its fragment stripped —
+ * see `normalizeUrl` in `src/server/og/preview.ts`. Only successful scrapes
+ * are ever written here; a failed one is treated as transient (roughly half
+ * of retailers block scraping at all), so it's never cached as a dead end.
+ */
+export const ogCache = pgTable("og_cache", {
+  urlHash: text("url_hash").primaryKey(),
+  payload: jsonb("payload").notNull(),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true })
+    .notNull()
+    .default(sql`now()`),
+});
 
 /**
  * A named collection of items.
@@ -261,6 +277,8 @@ export type NewUser = typeof users.$inferInsert;
 export type InviteCode = typeof inviteCodes.$inferSelect;
 export type NewInviteCode = typeof inviteCodes.$inferInsert;
 export type RateLimit = typeof rateLimits.$inferSelect;
+export type OgCache = typeof ogCache.$inferSelect;
+export type NewOgCache = typeof ogCache.$inferInsert;
 export type Wishlist = typeof wishlists.$inferSelect;
 export type NewWishlist = typeof wishlists.$inferInsert;
 export type Item = typeof items.$inferSelect;
