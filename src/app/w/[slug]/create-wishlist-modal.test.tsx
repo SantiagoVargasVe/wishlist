@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -25,6 +25,18 @@ afterEach(() => {
 
 async function openAndFill(title: string) {
   await userEvent.click(screen.getByRole("button", { name: "Nueva lista" }));
+
+  // Base UI's dialog schedules its initial-focus move (onto the close button,
+  // the first tabbable element) via `requestAnimationFrame`, which this click
+  // doesn't wait for. Left pending, it can fire mid-type and steal focus away
+  // from the title input, dropping keystrokes — flaky under load, where the
+  // extra scheduling delay lands squarely inside the typing window. Waiting
+  // one frame here lets that focus move happen first, so ours (below) is the
+  // one left standing.
+  await act(async () => {
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+  });
+
   await userEvent.type(screen.getByLabelText("Nombre de la lista"), title);
 }
 
