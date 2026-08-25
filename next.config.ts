@@ -17,10 +17,15 @@ const nextConfig: NextConfig = {
   // guard, Next's own documented pattern — that guard prevents *execution*,
   // not webpack's static discovery of the import.
   //
-  // Stub it for every target except the real Node.js server, which is the
-  // only one that ever executes it. Confirmed both edge and client trip this
-  // before landing on the broader condition — a narrower `=== "edge"` check
-  // alone was not sufficient.
+  // sweep.ts (T034) is the same story via a different import: `next build`
+  // tolerates it, but `next dev` fails outright with `UnhandledSchemeError:
+  // node:fs/promises` — confirmed empirically, not assumed from the
+  // migrate.ts precedent alone, since build alone didn't reproduce it.
+  //
+  // Stub both for every target except the real Node.js server, which is the
+  // only one that ever executes either. Confirmed both edge and client trip
+  // this before landing on the broader condition — a narrower `=== "edge"`
+  // check alone was not sufficient.
   //
   // The alias key must be an absolute path. Webpack resolves alias keys
   // relative to the compiler's root context (the project root), not relative
@@ -30,6 +35,7 @@ const nextConfig: NextConfig = {
   webpack: (config, { nextRuntime }) => {
     if (nextRuntime !== "nodejs") {
       config.resolve.alias[path.resolve(process.cwd(), "src/server/db/migrate")] = false;
+      config.resolve.alias[path.resolve(process.cwd(), "src/server/og/sweep")] = false;
     }
     return config;
   },
