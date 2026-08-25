@@ -14,6 +14,7 @@ vi.mock("./delete-wishlist-button", () => ({
     <button>Eliminar {wishlist.title}</button>
   ),
 }));
+vi.mock("./wishlist-filter", () => ({ WishlistFilter: () => null }));
 
 import type { MyWishlist } from "@/server/services/me";
 

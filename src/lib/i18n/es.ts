@@ -134,5 +134,6 @@ export const es = {
         generic: "No se pudo eliminar la lista. Intenta de nuevo.",
       },
     },
+    filterLabel: "Tus listas",
   },
 } as const;
