@@ -63,6 +63,21 @@ describe("safeFetch — happy path", () => {
       expect.objectContaining({ connectAddress: PUBLIC.address, family: 4 }),
     );
   });
+
+  // ADR-0010: several retailers' CDNs refuse a bot-shaped User-Agent at the
+  // edge, so a caller that omits one must not fall back to something blocked
+  // — that failure reads as a broken scrape, not as a missing argument.
+  it("falls back to a link-preview User-Agent when the caller passes none", async () => {
+    const transport = vi.fn().mockResolvedValue(htmlResponse());
+    await safeFetch("https://example.com/", baseOptions, {
+      resolveHost: vi.fn().mockResolvedValue([PUBLIC]),
+      transport,
+    });
+
+    expect(transport).toHaveBeenCalledWith(
+      expect.objectContaining({ userAgent: expect.stringMatching(/^WhatsApp\//) }),
+    );
+  });
 });
 
 describe("safeFetch — scheme rejection", () => {

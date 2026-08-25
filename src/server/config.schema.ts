@@ -43,7 +43,17 @@ export const configSchema = z.object({
   OG_MAX_HTML_BYTES: z.coerce.number().int().positive().default(2_097_152),
   OG_MAX_IMAGE_BYTES: z.coerce.number().int().positive().default(10_485_760),
   OG_CACHE_TTL_HOURS: z.coerce.number().int().positive().default(168),
-  OG_USER_AGENT: z.string().min(1).default("WishlistBot/1.0"),
+  // Several large retailers' CDNs decide at the edge, on User-Agent alone,
+  // whether a request reaches their origin at all: a bot-shaped UA gets a
+  // 403, a browser-shaped one gets an unsolvable JS challenge, and only a
+  // `WhatsApp/`-prefixed one gets the page. The appended URL is what keeps
+  // this from being bare impersonation — an operator reading their logs can
+  // see what this is and block it specifically. See ADR-0010 for the
+  // measurements and the tradeoff; set this to `WishlistBot/1.0` to opt out.
+  OG_USER_AGENT: z
+    .string()
+    .min(1)
+    .default("WhatsApp/2.0 (+https://github.com/SantiagoVargasVe/wishlist)"),
 
   // MercadoLibre catalog-product lookups (T036). Optional: an operator who
   // hasn't registered a MercadoLibre developer app just leaves these unset,
