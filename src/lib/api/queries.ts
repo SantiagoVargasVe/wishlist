@@ -1,5 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import type { CreateItemInput } from "@/lib/schemas/item";
+import type { PreviewResult } from "@/server/og/preview";
+import type { PublicItem } from "@/server/services/items";
 import type { PublicVisitorWishlist } from "@/server/services/public-wishlist";
 
 import { apiFetch } from "./client";
@@ -55,6 +58,33 @@ export function useClaimMutation(slug: string) {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: key });
     },
+  });
+}
+
+/**
+ * `url` is `null` until the caller has a debounced, schema-valid URL to
+ * scrape — `enabled` gates the request rather than the caller skipping the
+ * hook entirely, so the loading/error states stay available to render a
+ * skeleton immediately once a valid URL lands. A `POST` under the hood, but
+ * modeled as a query: it's a cacheable read (same URL twice reuses the
+ * result) with no side effect of its own, and `useQuery` gives dedup + an
+ * `isFetching` flag for free.
+ */
+export function usePreviewQuery(url: string | null) {
+  return useQuery({
+    queryKey: queryKeys.preview(url ?? ""),
+    queryFn: () =>
+      apiFetch<PreviewResult>("/api/preview", { method: "POST", body: JSON.stringify({ url }) }),
+    enabled: url !== null,
+    staleTime: Infinity,
+    retry: false,
+  });
+}
+
+export function useCreateItemMutation() {
+  return useMutation({
+    mutationFn: (input: CreateItemInput) =>
+      apiFetch<{ item: PublicItem }>("/api/items", { method: "POST", body: JSON.stringify(input) }),
   });
 }
 
