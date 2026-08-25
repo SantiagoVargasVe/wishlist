@@ -59,7 +59,7 @@ describe("useItemPreview", () => {
     expect(vi.mocked(usePreviewQuery)).toHaveBeenLastCalledWith("https://example.com/product");
   });
 
-  it("prefills title, priceAmount, and priceCurrency once a result arrives", () => {
+  it("prefills title, imageUrl, priceAmount, and priceCurrency once a result arrives", () => {
     mockPreview(OK_RESULT);
     const setValue = vi.fn();
 
@@ -71,6 +71,7 @@ describe("useItemPreview", () => {
     });
 
     expect(setValue).toHaveBeenCalledWith("title", "Widget");
+    expect(setValue).toHaveBeenCalledWith("imageUrl", "https://cdn.example/w.jpg");
     expect(setValue).toHaveBeenCalledWith("priceAmount", "49.99");
     expect(setValue).toHaveBeenCalledWith("priceCurrency", "USD");
   });
@@ -90,6 +91,21 @@ describe("useItemPreview", () => {
     expect(setValue).not.toHaveBeenCalledWith("priceAmount", expect.anything());
   });
 
+  it("does not prefill imageUrl when the scrape found none", () => {
+    mockPreview({ ...OK_RESULT, imageUrl: null });
+    const setValue = vi.fn();
+
+    renderHook(({ url }) => useItemPreview(url, setValue), {
+      initialProps: { url: "https://example.com/product" },
+    });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(setValue).toHaveBeenCalledWith("title", "Widget");
+    expect(setValue).not.toHaveBeenCalledWith("imageUrl", expect.anything());
+  });
+
   it("does not re-apply the same url's result on a second render", () => {
     mockPreview(OK_RESULT);
     const setValue = vi.fn();
@@ -100,13 +116,13 @@ describe("useItemPreview", () => {
     act(() => {
       vi.advanceTimersByTime(500);
     });
-    expect(setValue).toHaveBeenCalledTimes(3);
+    expect(setValue).toHaveBeenCalledTimes(4);
 
     rerender({ url: "https://example.com/product" });
     act(() => {
       vi.advanceTimersByTime(500);
     });
 
-    expect(setValue).toHaveBeenCalledTimes(3);
+    expect(setValue).toHaveBeenCalledTimes(4);
   });
 });
