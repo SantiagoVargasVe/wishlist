@@ -126,4 +126,15 @@ export const ItemErrors = {
     new ConflictError("ITEM_ALREADY_IN_WISHLIST", "This item is already in that list"),
   notInWishlist: () =>
     new NotFoundError("ITEM_NOT_IN_WISHLIST", "This item isn't in that list"),
+  /**
+   * An uploaded image we won't store (T086) — too large, not a decodable
+   * image, or a format outside the raster allowlist. One code for all three:
+   * the user's next action is the same in every case (pick a different
+   * picture), and enumerating *why* a payload was rejected is a probe into
+   * what the decoder will accept.
+   */
+  imageRejected: (message: string) => new ValidationError(message),
+  /** 413 rather than 400: the request was well-formed, just too big. */
+  imageTooLarge: (maxBytes: number) =>
+    new DomainError("IMAGE_TOO_LARGE", "That image is too large", 413, { maxBytes }),
 };

@@ -100,6 +100,21 @@ OG scraper (T030–T034), not a live trigger. **That scraper doesn't exist yet.*
 auto-fills from the URL.
 | POST | `/api/items/:id/wishlists` | O | `{ wishlistId }` → `201`. Both the item and the target list must be the caller's — `404` if either is genuinely missing/soft-deleted, `403` if either exists but belongs to someone else. `409 ITEM_ALREADY_IN_WISHLIST` if it's already there. |
 | DELETE | `/api/items/:id/wishlists/:wishlistId` | O | → `204`. `404 ITEM_NOT_IN_WISHLIST` if that membership doesn't exist. Removing the **last** membership also soft-deletes the item — no confirmation step, unlike deleting a whole wishlist. |
+| POST | `/api/items/:id/image` | O | Raw image bytes as the body → `204`. Replaces the item's picture. `413 IMAGE_TOO_LARGE` over `IMAGE_MAX_UPLOAD_BYTES`, `400 VALIDATION_FAILED` if the bytes aren't a supported image. |
+
+`PATCH /api/items/:id` also accepts `imageUrl`, which replaces the picture by *downloading* it —
+the same unawaited path create uses. `POST .../image` is the other half: bytes the user supplied
+directly, whether picked, dragged, or pasted from the clipboard.
+
+**Raw body, not `multipart/form-data`.** There is one field, and `request.formData()` buffers the
+whole payload before anything can measure it — which is the denial of service, not the defence.
+The body is read through a streaming cap that aborts mid-upload, and `Content-Length` is treated
+as a claim rather than a fact. Ownership is checked *before* the body is read, so an upload from a
+stranger costs one indexed lookup instead of megabytes of memory.
+
+Uploaded bytes are validated by **decoding**, never by the declared `Content-Type` or a file
+extension, and the decoded format must be in a raster allowlist — see
+[security.md](security.md) § *Images*.
 
 ## Public list view
 

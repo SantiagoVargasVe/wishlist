@@ -8,8 +8,17 @@ vi.mock("next/navigation", () => ({
 }));
 
 const updateMutateAsyncMock = vi.fn();
+const uploadImageMock = vi.fn();
 vi.mock("@/lib/api/queries", () => ({
   useUpdateItemMutation: () => ({ mutateAsync: updateMutateAsyncMock }),
+  // T086: the image picker lives in both forms now. Nothing here picks an
+  // image, so this never fires — it just has to exist to be called.
+  useUploadItemImageMutation: () => ({ mutateAsync: uploadImageMock, isPending: false }),
+}));
+
+// `useItemImage` reaches for the toast manager to report a failed upload.
+vi.mock("@/app/_ui/toast", () => ({
+  Toast: { useToastManager: () => ({ add: vi.fn() }) },
 }));
 
 import type { PublicItem } from "@/server/services/items";

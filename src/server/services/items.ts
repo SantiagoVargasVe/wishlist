@@ -133,6 +133,10 @@ export async function updateItem(
       ...(input.title !== undefined ? { title: input.title } : {}),
       ...(input.notes !== undefined ? { notes: input.notes } : {}),
       ...priceFields(input.priceAmount, input.priceCurrency),
+      // A replacement picture (T086). Recorded here; the route kicks off the
+      // download, the same split create already uses — services stay free of
+      // filesystem and network work.
+      ...(input.imageUrl !== undefined ? { sourceImageUrl: input.imageUrl } : {}),
       ...(urlChanged ? { ogStatus: "pending", ogFetchedAt: null } : {}),
       updatedAt: new Date(),
     })
@@ -140,6 +144,28 @@ export async function updateItem(
     .returning(itemColumns);
 
   return row;
+}
+
+/**
+ * Ownership check with no side effects, for callers that need to authorize
+ * before doing expensive work — `POST /api/items/:id/image` asserts this
+ * *before* reading the request body, so an upload from a stranger costs one
+ * indexed lookup instead of several megabytes of buffer.
+ *
+ * Same 404-not-403 treatment as every other item lookup: a stranger learns
+ * nothing about whether the id exists.
+ */
+export async function assertItemOwned(
+  id: string,
+  ownerId: string,
+  db: Db = getDb(),
+): Promise<void> {
+  const [existing] = await db
+    .select({ id: items.id, ownerId: items.ownerId })
+    .from(items)
+    .where(and(eq(items.id, id), liveItem))
+    .limit(1);
+  assertOwned(existing, ownerId, ItemErrors.notFound);
 }
 
 /**

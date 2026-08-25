@@ -39,6 +39,18 @@ export const configSchema = z.object({
   IMAGE_MAX_WIDTH: z.coerce.number().int().positive().default(800),
   IMAGE_WEBP_QUALITY: z.coerce.number().int().min(1).max(100).default(80),
 
+  // Decompression-bomb ceiling, and the guard a byte limit cannot replace: a
+  // 12000x12000 single-colour PNG is ~436KB on the wire but ~430MB decoded.
+  // sharp's own default only trips near 268 megapixels, far too generous for a
+  // small self-hosted box that shares its RAM with everything else. 40MP still
+  // clears a 48MP phone photo's usable range and any retailer product shot.
+  IMAGE_MAX_PIXELS: z.coerce.number().int().positive().default(40_000_000),
+
+  // Cap on a user-supplied upload, applied before anything is decoded. Smaller
+  // than OG_MAX_IMAGE_BYTES on purpose: that one covers a retailer CDN we
+  // chose to fetch, this one covers an arbitrary POST body.
+  IMAGE_MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(8_388_608),
+
   OG_FETCH_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
   OG_MAX_HTML_BYTES: z.coerce.number().int().positive().default(2_097_152),
   OG_MAX_IMAGE_BYTES: z.coerce.number().int().positive().default(10_485_760),
