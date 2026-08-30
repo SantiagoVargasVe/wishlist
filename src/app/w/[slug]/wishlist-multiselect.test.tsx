@@ -63,10 +63,16 @@ describe("WishlistMultiSelect", () => {
     expect(onChange).toHaveBeenLastCalledWith([]);
   });
 
-  it("shows the error message when passed one", () => {
+  it("resolves an i18n-key error message to Spanish (T092)", () => {
     function ErrorHarness() {
       const { control } = useHarnessForm([]);
-      return <WishlistMultiSelect control={control} wishlists={wishlists} error="Elige al menos una lista" />;
+      return (
+        <WishlistMultiSelect
+          control={control}
+          wishlists={wishlists}
+          error="wishlist.itemForm.errors.wishlistIds"
+        />
+      );
     }
     render(<ErrorHarness />);
 

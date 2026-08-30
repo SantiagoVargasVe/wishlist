@@ -2,7 +2,7 @@
 id: T091
 title: "Add-item form — drop the redundant preview card to kill the vertical scroll"
 epic: E11-post-deploy-ui-polish
-status: todo
+status: done
 depends_on: [T053, T086]
 size: S
 ---

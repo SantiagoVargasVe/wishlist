@@ -45,3 +45,19 @@ export function interpolate(template: string, vars?: Record<string, string | num
 export function t(key: TranslationKey, vars?: Record<string, string | number>): string {
   return interpolate(resolve(key), vars);
 }
+
+/**
+ * Resolve a validation message that's stored as an i18n key so the Zod
+ * schema itself can stay in English (see T092). A string that isn't a known
+ * key — a server-sent message, or a schema not yet migrated to keys — passes
+ * through untouched. `undefined` stays `undefined` so callers can forward
+ * `fieldError?.message` straight in.
+ */
+export function translateMessage(message: string | undefined): string | undefined {
+  if (message === undefined) return message;
+  try {
+    return resolve(message);
+  } catch {
+    return message;
+  }
+}

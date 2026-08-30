@@ -4,6 +4,7 @@ import { Field as BaseField } from "@base-ui-components/react/field";
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
+import { translateMessage } from "@/lib/i18n";
 
 interface FieldProps {
   label: string;
@@ -28,15 +29,20 @@ interface FieldProps {
  * control the way `Field.Error` would have — that needs the control's id,
  * which `children` doesn't expose generically. Revisit if a screen reader
  * pass through the real forms (T014/T053/T054) flags it as a problem.
+ *
+ * `error` may be an i18n key (some Zod schemas store keys so they stay
+ * English — T092); `translateMessage` resolves those and passes any other
+ * string through unchanged.
  */
 export function Field({ label, error, children, className }: FieldProps) {
+  const message = translateMessage(error);
   return (
-    <BaseField.Root invalid={Boolean(error)} className={cn("flex flex-col gap-1.5", className)}>
+    <BaseField.Root invalid={Boolean(message)} className={cn("flex flex-col gap-1.5", className)}>
       <BaseField.Label className="text-sm font-medium text-foreground">{label}</BaseField.Label>
       {children}
-      {error && (
+      {message && (
         <p className="text-sm text-destructive" role="alert">
-          {error}
+          {message}
         </p>
       )}
     </BaseField.Root>

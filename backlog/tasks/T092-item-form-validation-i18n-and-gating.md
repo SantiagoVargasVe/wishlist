@@ -2,7 +2,7 @@
 id: T092
 title: "Item add/edit form — Spanish validation messages, live Save gating, clear the stale price/currency error"
 epic: E11-post-deploy-ui-polish
-status: todo
+status: done
 depends_on: [T082, T083]
 size: M
 ---
