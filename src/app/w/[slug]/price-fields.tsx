@@ -1,4 +1,12 @@
-import { Controller, useWatch, type Control, type FieldErrors, type Path } from "react-hook-form";
+import { useEffect } from "react";
+import {
+  Controller,
+  useWatch,
+  type Control,
+  type FieldErrors,
+  type Path,
+  type UseFormTrigger,
+} from "react-hook-form";
 
 import { Field } from "@/app/_ui/field";
 import { Input } from "@/app/_ui/input";
@@ -18,19 +26,31 @@ type PriceFieldValues = { priceAmount?: string; priceCurrency?: "COP" | "USD" };
 export function PriceFields<T extends PriceFieldValues>({
   control,
   errors,
+  trigger,
   disabled,
 }: {
   control: Control<T>;
   errors: FieldErrors<T>;
+  trigger: UseFormTrigger<T>;
   disabled?: boolean;
 }) {
+  const amountName = "priceAmount" as Path<T>;
+  const currencyName = "priceCurrency" as Path<T>;
+
   // Masking needs the *other* field's live value — the display format
   // (period vs. comma thousands) depends on whichever currency is currently
   // selected, so switching it reformats an already-typed amount to match.
-  const currency = useWatch({ control, name: "priceCurrency" as Path<T> }) as
-    | "COP"
-    | "USD"
-    | undefined;
+  const currency = useWatch({ control, name: currencyName }) as "COP" | "USD" | undefined;
+  const amount = useWatch({ control, name: amountName }) as string | undefined;
+
+  // The price/currency pairing is a schema-level refinement whose error is
+  // reported on `priceAmount`. react-hook-form re-validates only the field
+  // that changed, so filling the *second* half of the pair leaves that
+  // error — and `isValid`, and therefore the Save button — stale. Re-trigger
+  // both whenever either changes. See T092.
+  useEffect(() => {
+    void trigger([amountName, currencyName]);
+  }, [amount, currency, trigger, amountName, currencyName]);
 
   return (
     <div className="flex gap-3">
@@ -40,7 +60,7 @@ export function PriceFields<T extends PriceFieldValues>({
         className="flex-1"
       >
         <Controller
-          name={"priceAmount" as Path<T>}
+          name={amountName}
           control={control}
           render={({ field }) => {
             const raw = (field.value as string | undefined) ?? "";
@@ -65,7 +85,7 @@ export function PriceFields<T extends PriceFieldValues>({
       </Field>
       <Field label={t("wishlist.addItemModal.currency")} className="w-28">
         <Controller
-          name={"priceCurrency" as Path<T>}
+          name={currencyName}
           control={control}
           render={({ field }) => (
             <Select.Root

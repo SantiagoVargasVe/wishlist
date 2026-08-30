@@ -113,4 +113,13 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Tailwind v4's Preflight no longer forces `cursor: pointer` on buttons, so
+     native <button>s (our `Button` primitive, Base UI triggers, the drop
+     zone) fall back to the arrow cursor. Put it back for enabled ones only —
+     a disabled control shouldn't read as clickable. Links keep the browser
+     default, which is already a pointer. See T093. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
 }

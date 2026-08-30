@@ -38,6 +38,14 @@ describe("ItemCard", () => {
     expect(screen.queryByText(/\$/)).not.toBeInTheDocument();
   });
 
+  it("renders the image with object-cover, matching the visitor card (T089)", () => {
+    const { container } = render(
+      <ItemCard item={{ ...baseItem, imagePath: "abc.jpg" }} {...cardProps} />,
+    );
+    // `alt=""` means the <img> has no `img` role — select it directly.
+    expect(container.querySelector("img")).toHaveClass("object-cover");
+  });
+
   it("falls back to a placeholder when there is no image", () => {
     render(<ItemCard item={baseItem} {...cardProps} />);
     expect(screen.getByText("Sin imagen")).toBeInTheDocument();

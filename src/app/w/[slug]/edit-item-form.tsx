@@ -24,6 +24,7 @@ export function EditItemForm({ item, onSuccess }: { item: PublicItem; onSuccess:
     control,
     handleSubmit,
     setError,
+    trigger,
     formState: { errors, isSubmitting, isValid },
   } = useForm<UpdateItemInput>({
     resolver: zodResolver(updateItemSchema),
@@ -81,7 +82,7 @@ export function EditItemForm({ item, onSuccess }: { item: PublicItem; onSuccess:
         onPickUrl={image.pickUrl}
         onClear={image.clear}
       />
-      <PriceFields control={control} errors={errors} />
+      <PriceFields control={control} errors={errors} trigger={trigger} />
       <p className="text-xs text-muted-foreground">{t("wishlist.editItemModal.priceHint")}</p>
       {errors.root?.message && (
         <p className="text-sm text-destructive" role="alert">

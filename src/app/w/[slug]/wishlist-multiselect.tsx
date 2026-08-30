@@ -3,7 +3,7 @@
 import { Combobox } from "@base-ui-components/react/combobox";
 import { Controller, type Control } from "react-hook-form";
 
-import { t } from "@/lib/i18n";
+import { t, translateMessage } from "@/lib/i18n";
 import type { CreateItemInput } from "@/lib/schemas/item";
 import type { PublicWishlist } from "@/server/services/wishlists";
 
@@ -35,6 +35,7 @@ export function WishlistMultiSelect({
   disabled?: boolean;
 }) {
   const titleOf = (id: string) => wishlists.find((w) => w.id === id)?.title ?? id;
+  const message = translateMessage(error);
 
   return (
     <Controller
@@ -95,9 +96,9 @@ export function WishlistMultiSelect({
               </Combobox.Positioner>
             </Combobox.Portal>
           </Combobox.Root>
-          {error && (
+          {message && (
             <p className="text-sm text-destructive" role="alert">
-              {error}
+              {message}
             </p>
           )}
         </div>

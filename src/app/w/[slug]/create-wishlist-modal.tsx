@@ -31,6 +31,13 @@ export function CreateWishlistModal() {
       setOpen(false);
       reset();
       router.push(`/w/${wishlist.slug}`);
+      // Going from one list to two flips `WishlistFilter` from "render
+      // nothing" to "render the nav" — but the route you were on is still
+      // cached in the Router Cache from when there was only one list, so
+      // navigating back to it shows no nav until a hard reload. `refresh()`
+      // invalidates that cache so every sibling list re-renders with the
+      // nav. See T094.
+      router.refresh();
     } catch {
       setError("root", { message: t("wishlist.createWishlistModal.errors.generic") });
     }

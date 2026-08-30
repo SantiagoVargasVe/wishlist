@@ -37,15 +37,15 @@ export function AddItemForm({
     setValue,
     watch,
     setError,
+    trigger,
     formState: { errors, isSubmitting, isValid },
   } = useForm<CreateItemInput>({
     resolver: zodResolver(createItemSchema),
     defaultValues: { url: "", title: "", notes: "", wishlistIds: [currentWishlistId] },
-    // "onTouched" rather than "onChange": still gives an accurate, live
-    // `isValid` for the Save button (accessing `formState.isValid` makes RHF
-    // validate once on mount and keep it current), but doesn't flash a
-    // validation error on the url field the instant the user types a first
-    // character — only once they've blurred it at least once.
+    // "onTouched", not "onChange": keeps `isValid` live for the Save button
+    // (reading `formState.isValid` makes RHF validate on mount and stay
+    // current) without flashing a url-field error on the first keystroke —
+    // it appears only after the field is blurred once. See T082 / T092.
     mode: "onTouched",
   });
 
@@ -55,8 +55,7 @@ export function AddItemForm({
 
   const onSubmit = handleSubmit(async (input) => {
     try {
-      const imageUrl = image.imageUrlFor(input.imageUrl);
-      const { item } = await create.mutateAsync({ ...input, imageUrl });
+      const { item } = await create.mutateAsync({ ...input, imageUrl: image.imageUrlFor(input.imageUrl) });
       // After the item exists, so it has an id to attach bytes to. Never
       // throws — a failed upload toasts and leaves the item saved.
       await image.uploadTo(item.id);
@@ -83,7 +82,7 @@ export function AddItemForm({
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
-      <ItemPreviewField register={register} error={errors.url?.message} preview={preview} />
+      <ItemPreviewField register={register} error={errors.url?.message} />
       <Field label={t("wishlist.addItemModal.itemTitle")} error={errors.title?.message}>
         <Input {...register("title")} disabled={fieldsDisabled} />
       </Field>
@@ -105,7 +104,7 @@ export function AddItemForm({
         onPickUrl={image.pickUrl}
         onClear={image.clear}
       />
-      <PriceFields control={control} errors={errors} disabled={fieldsDisabled} />
+      <PriceFields control={control} errors={errors} trigger={trigger} disabled={fieldsDisabled} />
       <WishlistMultiSelect
         wishlists={wishlists}
         control={control}

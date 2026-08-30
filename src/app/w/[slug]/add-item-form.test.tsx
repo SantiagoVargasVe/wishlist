@@ -191,5 +191,36 @@ describe("AddItemForm", () => {
 
       expect(screen.getByRole("button", { name: "Añadir" })).toBeEnabled();
     });
+
+    it("goes back to disabled when a price is entered without a currency (T092)", async () => {
+      render(<AddItemForm wishlists={wishlists} currentWishlistId={WISHLIST_ID} onSuccess={vi.fn()} />);
+      await fillRequiredFields();
+      expect(screen.getByRole("button", { name: "Añadir" })).toBeEnabled();
+
+      await userEvent.type(screen.getByLabelText("Precio"), "1000");
+
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "Añadir" })).toBeDisabled(),
+      );
+    });
+  });
+
+  describe("validation messages in Spanish (T092)", () => {
+    it("shows the URL error in Spanish once the field has been blurred", async () => {
+      render(<AddItemForm wishlists={wishlists} currentWishlistId={WISHLIST_ID} onSuccess={vi.fn()} />);
+
+      await userEvent.type(screen.getByLabelText("Enlace del producto"), "not-a-url");
+      await userEvent.tab();
+
+      expect(await screen.findByText("Ingresa un enlace válido")).toBeInTheDocument();
+    });
+
+    it("does not show the URL error on the first keystroke, before any blur (T082 preserved)", async () => {
+      render(<AddItemForm wishlists={wishlists} currentWishlistId={WISHLIST_ID} onSuccess={vi.fn()} />);
+
+      await userEvent.type(screen.getByLabelText("Enlace del producto"), "h");
+
+      expect(screen.queryByText("Ingresa un enlace válido")).not.toBeInTheDocument();
+    });
   });
 });

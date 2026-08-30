@@ -19,12 +19,13 @@ describe("AppShell", () => {
     expect(screen.getByRole("button", { name: "Invitar (mock)" })).toBeInTheDocument();
   });
 
-  it("shows no invite entry point for a logged-out visitor", async () => {
+  it("shows a log-in link, not the invite entry point, for a logged-out visitor (T095)", async () => {
     vi.mocked(currentUserId).mockResolvedValue(null);
 
     render(await AppShell({ children: <div>content</div> }));
 
     expect(screen.queryByRole("button", { name: "Invitar (mock)" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Iniciar sesión" })).toHaveAttribute("href", "/login");
   });
 
   it("always renders its children", async () => {

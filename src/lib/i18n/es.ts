@@ -5,6 +5,9 @@ export const es = {
     dismiss: "Cerrar",
     cancel: "Cancelar",
   },
+  nav: {
+    login: "Iniciar sesión",
+  },
   theme: {
     light: "claro",
     dark: "oscuro",
@@ -59,6 +62,19 @@ export const es = {
       generic: "No se pudo deshacer la reserva. Intenta de nuevo.",
     },
     addItem: "Añadir artículo",
+    // Validation messages for the add/edit item form. Referenced by key from
+    // `src/lib/schemas/item.ts` so the schema stays in English (T092).
+    itemForm: {
+      errors: {
+        url: "Ingresa un enlace válido",
+        title: "Ingresa un título",
+        priceAmount: "Ingresa un monto válido",
+        priceAmountPositive: "El monto debe ser mayor que cero",
+        pricePair: "El precio y la moneda van juntos",
+        wishlistIds: "Elige al menos una lista",
+        atLeastOneField: "Cambia al menos un campo",
+      },
+    },
     addItemModal: {
       title: "Añadir artículo",
       url: "Enlace del producto",
