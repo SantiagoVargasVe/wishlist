@@ -31,8 +31,10 @@ export function ItemCard({
       {/* Fixed height, not aspect-square: aspect-square ties height to the
           grid column's width, which varies across breakpoints and column
           counts — a fixed height keeps every card the same regardless.
-          object-contain (not -cover) so a non-square photo is never
-          cropped; the bg-muted fill reads as intentional letterboxing. */}
+          object-cover (T089) to match what a guest sees on `VisitorItemCard`
+          — the owner reviews their list next to the link they share, so
+          consistency wins over T080's original never-crop preference; the
+          bg-muted fill still backs the no-image placeholder. */}
       <div className="flex h-48 shrink-0 items-center justify-center bg-muted">
         {item.imagePath ? (
           <Image
@@ -40,7 +42,7 @@ export function ItemCard({
             alt=""
             width={400}
             height={400}
-            className="h-full w-full object-contain"
+            className="h-full w-full object-cover"
           />
         ) : (
           <span className="text-sm text-muted-foreground">{t("wishlist.noImage")}</span>

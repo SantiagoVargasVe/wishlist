@@ -2,7 +2,7 @@
 id: T089
 title: "Owner item card — cover (not contained) images, matching the visitor card"
 epic: E11-post-deploy-ui-polish
-status: todo
+status: done
 depends_on: [T080]
 size: S
 ---

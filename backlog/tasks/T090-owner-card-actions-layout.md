@@ -2,7 +2,7 @@
 id: T090
 title: "Owner item card actions — two-row layout, hide \"Quitar\" for single-list items"
 epic: E11-post-deploy-ui-polish
-status: todo
+status: done
 depends_on: [T054, T080]
 size: S
 ---
