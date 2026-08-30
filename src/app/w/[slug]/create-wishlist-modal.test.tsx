@@ -3,8 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const pushMock = vi.fn();
+const refreshMock = vi.fn();
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock }),
+  useRouter: () => ({ push: pushMock, refresh: refreshMock }),
 }));
 
 const createMutateAsyncMock = vi.fn();
@@ -17,6 +18,7 @@ import { CreateWishlistModal } from "./create-wishlist-modal";
 beforeEach(() => {
   createMutateAsyncMock.mockReset();
   pushMock.mockClear();
+  refreshMock.mockClear();
 });
 
 afterEach(() => {
@@ -52,6 +54,9 @@ describe("CreateWishlistModal", () => {
       expect(createMutateAsyncMock).toHaveBeenCalledWith({ title: "Cumpleaños" }),
     );
     expect(pushMock).toHaveBeenCalledWith("/w/abc123");
+    // Busts the Router Cache so the list you were on re-renders with the
+    // now-relevant nav instead of its stale one-list version (T094).
+    expect(refreshMock).toHaveBeenCalled();
   });
 
   it("shows a validation error and never calls the API for a blank title", async () => {

@@ -2,7 +2,7 @@
 id: T094
 title: "Fix: new-list nav chips don't appear on the previous list until a reload"
 epic: E11-post-deploy-ui-polish
-status: todo
+status: done
 depends_on: [T055, T056]
 size: S
 ---
