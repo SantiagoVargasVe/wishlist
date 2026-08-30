@@ -2,7 +2,7 @@
 id: T093
 title: "Pointer cursor on interactive controls (Tailwind v4 Preflight regression)"
 epic: E11-post-deploy-ui-polish
-status: todo
+status: done
 depends_on: [T004]
 size: S
 ---
