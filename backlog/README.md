@@ -68,6 +68,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 | **E8** invites | Self-service invite minting | T070 |
 | **E9** post-mvp-ui | Card layout, image-after-add race, form UX gating, price masking, multi-select lists | T080–T084 |
 | **E10** preview-reliability | Why pasted links so often yield no image, and what to do about it | T085–T088 |
+| **E11** post-deploy-ui-polish | Second round of deployed-app UI fixes from real usage (2026-08-30) | T089–T096 |
 
 ## Task index
 
@@ -208,3 +209,23 @@ Two things that look like solutions and are not, both checked rather than assume
   specifically. Routing every pasted URL through a third party would also tell that vendor what
   the family is buying — against the grain of
   [ADR-0004](../docs/adr/0004-store-images.md)'s reason for storing images locally.
+
+**E11 — Post-deploy UI polish, round 2**
+
+A second batch of small UI fixes from actually using the deployed app (2026-08-30), after the
+E9 round. All frontend, all small.
+
+- `T089` Owner item card: `object-cover` images, matching the visitor card (reverses T080's
+  `object-contain` for the owner card, deliberately)
+- `T090` Owner card actions: two-row layout (Editar / Eliminar full width), hide "Quitar" for
+  items that are only in one list — frontend-only, the grid already knows the membership count
+- `T091` Add-item form: drop the now-redundant preview card (T086's image picker already shows
+  the scraped image) to remove the vertical scroll
+- `T092` Item add/edit form: Spanish validation messages (keys in code), fix the stale
+  price/currency pairing error, gate Save on real form validity
+- `T093` Pointer cursor on interactive controls — Tailwind v4 Preflight dropped the default
+- `T094` Fix: after creating a list, the previous list is missing its nav chips until reload
+  (stale Next Router Cache — the create flow doesn't `router.refresh()`)
+- `T095` Guest view: a "log in" entry in the header — anonymous visitors currently can't tell
+  the site has accounts
+- `T096` Visitor "Marcar como comprado" button: vertical padding + ≥44px touch target
