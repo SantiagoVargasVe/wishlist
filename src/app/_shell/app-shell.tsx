@@ -5,14 +5,14 @@ import { currentUserId } from "@/server/auth/session";
 
 import { Toaster } from "../_ui/toast";
 import { ThemeToggle } from "../_ui/theme-toggle";
-import { InviteButton } from "./invite-button";
+import { HeaderAuth } from "./header-auth";
 
 /**
  * Persistent header + content wrapper for every route. Mobile-first.
  *
- * The invite entry point (T070) is the first session-aware piece of this
- * shell — everything else here works identically for an owner, a visitor,
- * or nobody logged in at all.
+ * `HeaderAuth` is the only session-aware piece — it swaps the invite entry
+ * point (T070) for a "log in" link (T095) depending on `userId`. Everything
+ * else renders identically for an owner, a visitor, or nobody logged in.
  */
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const userId = await currentUserId();
@@ -25,7 +25,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             {t("common.appName")}
           </Link>
           <div className="flex items-center gap-2">
-            {userId && <InviteButton />}
+            <HeaderAuth isLoggedIn={Boolean(userId)} />
             <ThemeToggle />
           </div>
         </div>

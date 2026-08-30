@@ -5,6 +5,9 @@ export const es = {
     dismiss: "Cerrar",
     cancel: "Cancelar",
   },
+  nav: {
+    login: "Iniciar sesión",
+  },
   theme: {
     light: "claro",
     dark: "oscuro",

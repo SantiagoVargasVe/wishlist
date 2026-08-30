@@ -2,7 +2,7 @@
 id: T095
 title: "Guest view — log in / register entry in the header"
 epic: E11-post-deploy-ui-polish
-status: todo
+status: done
 depends_on: [T014, T050]
 size: S
 ---
