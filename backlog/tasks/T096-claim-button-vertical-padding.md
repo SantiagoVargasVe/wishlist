@@ -2,7 +2,7 @@
 id: T096
 title: "Visitor \"Marcar como comprado\" button — vertical padding / 44px touch target"
 epic: E11-post-deploy-ui-polish
-status: todo
+status: done
 depends_on: [T041, T052]
 size: S
 ---
