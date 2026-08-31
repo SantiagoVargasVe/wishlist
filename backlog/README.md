@@ -64,7 +64,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 | **E4** og | SSRF-safe fetch, parser, preview endpoint, image pipeline | T030–T036 |
 | **E5** claims | Claim schema, endpoints, tokens, rate limits, owner filtering | T040–T043 |
 | **E6** frontend | Shell, list page, modals, filters, share CTA, OG metadata | T050–T058 |
-| **E7** deploy | Dockerfile, CI image build, pull-timer deploy, WAF rules | T060–T064 |
+| **E7** deploy | Dockerfile, CI image build, pull-timer deploy, WAF rules | T060–T065 |
 | **E8** invites | Self-service invite minting | T070 |
 | **E9** post-mvp-ui | Card layout, image-after-add race, form UX gating, price masking, multi-select lists | T080–T084 |
 | **E10** preview-reliability | Why pasted links so often yield no image, and what to do about it | T085–T088 |
@@ -129,6 +129,9 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 - `T064` Cloudflare WAF rate-limit rules — **won't do**: turned out to be a paid-plan feature.
   The Postgres token-bucket limiter is the sole line of defense; see
   [security.md](../docs/context/security.md)'s "Known accepted risks"
+- `T065` Unique prod compose service key (`app` → `wishlist-app`) — **done**: a generic service key
+  becomes a network alias the shared `cloudflared` can resolve to the wrong stack; it 502'd
+  Nextcloud on 2026-08-30
 
 T061–T063 implement [ADR-0007](../docs/adr/0007-deploy-via-ghcr-and-pull-timer.md) and are
 blocked on T001 — there's no application to build an image from yet.

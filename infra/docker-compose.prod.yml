@@ -10,9 +10,19 @@
 #
 # Deploy:  docker compose pull && docker compose up -d
 # A systemd timer runs exactly that; see infra/deploy/.
+#
+# ── Service names must be globally unique across the tunnel ───────────────
+# Compose gives every service its *service key* as a network alias, on top of
+# `container_name`, and that alias cannot be removed. The shared `cloudflared`
+# is attached to several stacks' networks at once, and Docker's embedded DNS
+# resolves a name across all of them — so a service called `app` here would
+# collide with an `app` in any other stack on that tunnel and the tunnel would
+# route to whichever one DNS happened to return. That is not hypothetical: it
+# took cloud.santiagovargas.co down with a hard 502 on 2026-08-30. Keep the
+# service key equal to the container name.
 
 services:
-  app:
+  wishlist-app:
     image: ghcr.io/santiagovargasve/wishlist:latest
     container_name: wishlist-app
     restart: unless-stopped
