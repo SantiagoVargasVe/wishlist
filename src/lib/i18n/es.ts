@@ -60,6 +60,19 @@ export const es = {
       expiry: "El enlace vence en {hours} horas y solo se puede usar una vez.",
       ignore: "Si no creaste esta cuenta, puedes ignorar este mensaje.",
     },
+    passwordReset: {
+      subject: "Restablece tu contraseña",
+      // No greeting by name and no account details: mail is unencrypted at
+      // several hops and sits in a mailbox indefinitely, so it should be worth
+      // as little as possible to whoever ends up reading it.
+      body: "Recibimos una solicitud para restablecer la contraseña de tu cuenta.",
+      cta: "Elegir una contraseña nueva",
+      linkFallback: "Si el enlace no funciona, cópialo y pégalo en tu navegador:",
+      expiry: "El enlace vence en {minutes} minutos y solo se puede usar una vez.",
+      ignore:
+        "Si no fuiste tú, puedes ignorar este mensaje: tu contraseña no cambia hasta " +
+        "que alguien abra el enlace y elija una nueva.",
+    },
   },
   errors: {
     generic: "Algo salió mal. Intenta de nuevo.",

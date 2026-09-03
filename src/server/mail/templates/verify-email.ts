@@ -1,5 +1,7 @@
 import { t } from "@/lib/i18n";
 
+import { escapeHtml, type MailBody } from "./html";
+
 /**
  * The email verification message (ADR-0013).
  *
@@ -11,17 +13,6 @@ import { t } from "@/lib/i18n";
  * live credential, and every external request a mail client makes is one more
  * party that learns it exists.
  */
-
-export type MailBody = { subject: string; text: string; html: string };
-
-/** Escape for interpolation into the HTML part. `displayName` is user-supplied. */
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
 
 export function verifyEmailMessage(
   displayName: string,

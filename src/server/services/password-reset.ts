@@ -3,10 +3,13 @@ import "server-only";
 import { eq, sql } from "drizzle-orm";
 
 import { hashPassword } from "../auth/password";
+import { getConfig } from "../config";
 import { getDb } from "../db";
 import { users } from "../db/schema";
 import type { Db } from "../db/types";
 import { PasswordResetErrors } from "../errors";
+import { isMailConfigured, recipientDomain, sendMail } from "../mail";
+import { passwordResetMessage } from "../mail/templates/password-reset";
 import {
   claimToken,
   deleteSiblingTokens,
@@ -97,4 +100,100 @@ export async function consumeResetToken(
 
     return { userId };
   });
+}
+
+/**
+ * The per-address rate-limit bucket key for `/api/auth/forgot-password`.
+ *
+ * Lowercased before hashing, and that is not cosmetic: `users.email` is
+ * `citext`, so `Ana@x.com` and `ana@x.com` are one account. Bucketing on the
+ * raw string would let anyone reset the limit by changing the capitalisation —
+ * a bypass of the cap that exists to stop mailbombing one person.
+ *
+ * Hashed so the `rate_limits` table doesn't accumulate a plaintext list of who
+ * has been asking for password resets. It is keyed data, not a secret, but
+ * there is no reason for it to be readable.
+ */
+export function resetRequestEmailKey(email: string): string {
+  return hashToken(email.trim().toLowerCase());
+}
+
+/**
+ * `POST /api/auth/forgot-password`, minus the HTTP.
+ *
+ * **Returns void in every case, and throws in none.** The endpoint answers 202
+ * whatever happens, so this function's only outputs are a possible email and a
+ * log line. Three different things can silently produce no mail — the address
+ * is unknown, the address is unverified, or the send failed — and per ADR-0013
+ * server-side logging is the *only* way anyone can tell them apart. So each
+ * logs distinctly; a shared "reset requested, nothing sent" line would defeat
+ * the entire diagnostic story for this flow.
+ *
+ * One honest caveat, already recorded in ADR-0012: the response is identical
+ * but the *timing* is not, since a real send waits on SMTP. There is no Argon2
+ * on this path so the difference is the network call, and closing it would mean
+ * queueing mail, which ADR-0011 rejected as ceremony at this volume.
+ */
+export async function requestPasswordReset(
+  email: string,
+  db: Db = getDb(),
+): Promise<void> {
+  // citext, so this matches however the address was typed.
+  const [user] = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      emailVerifiedAt: users.emailVerifiedAt,
+    })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+
+  if (!user) {
+    console.info("Password reset requested for an address with no account.");
+    return;
+  }
+
+  // The gate ADR-0013 exists for, and the reason this task depends on T108.
+  // A mistyped address at registration means the reset link goes to whoever
+  // owns the typo — and since this endpoint is public, they can ask for one
+  // whenever they like. Not "a locked-out user": account takeover.
+  if (!user.emailVerifiedAt) {
+    console.info(
+      `Password reset requested for an unverified address at ${recipientDomain(user.email)}. ` +
+        "No token minted. They must verify first, or an operator can run `npm run reset-link`.",
+    );
+    return;
+  }
+
+  if (!isMailConfigured()) {
+    // Minted anyway: the operator can still deliver it, and this is the
+    // supported configuration rather than a broken one (ADR-0011).
+    await mintResetToken(user.id, db);
+    console.warn(
+      `Password reset token minted for an address at ${recipientDomain(user.email)} but not ` +
+        "delivered: outbound mail is not configured. Run `npm run reset-link -- <email>` " +
+        "to mint and hand over a link directly.",
+    );
+    return;
+  }
+
+  const { token } = await mintResetToken(user.id, db);
+  const url = `${getConfig().APP_URL}/reset-password/${token}`;
+  const minutes = Math.round(RESET_TOKEN_TTL_MS / 60_000);
+
+  try {
+    await sendMail({ to: user.email, ...passwordResetMessage(url, minutes) });
+  } catch (error) {
+    // Swallowed on purpose, and this is the one place in the codebase where
+    // that is the correct thing to do. Surfacing a send failure would make the
+    // response differ between "address registered, provider broken" and
+    // "address unknown" — an account-enumeration oracle handed out by an
+    // outage. Logged at error level because, per ADR-0011, this line is the
+    // only signal that a broken API key has silently disabled recovery.
+    console.error(
+      `Password reset mail failed for a recipient at ${recipientDomain(user.email)}:`,
+      error instanceof Error ? error.message : error,
+    );
+  }
 }

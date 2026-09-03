@@ -24,14 +24,24 @@ export const inviteCodeInput = z
       .length(INVITE_CODE_LENGTH, "Los códigos de invitación tienen 10 caracteres"),
   );
 
+/**
+ * Minimum for strength; maximum because Argon2 is deliberately expensive and an
+ * unbounded password is a cheap denial-of-service.
+ *
+ * Shared by registration and password reset rather than restated: a reset that
+ * accepted a weaker password than registration would be a way around the rule,
+ * and two copies drift the moment one is edited.
+ */
+export const passwordInput = z
+  .string()
+  .min(10, "Usa al menos 10 caracteres")
+  .max(128, "Usa como máximo 128 caracteres");
+
+export const emailInput = z.email("Ingresa un correo electrónico válido").max(254);
+
 export const registerSchema = z.object({
-  email: z.email("Ingresa un correo electrónico válido").max(254),
-  // Minimum for strength; maximum because Argon2 is deliberately expensive and
-  // an unbounded password is a cheap denial-of-service.
-  password: z
-    .string()
-    .min(10, "Usa al menos 10 caracteres")
-    .max(128, "Usa como máximo 128 caracteres"),
+  email: emailInput,
+  password: passwordInput,
   displayName: z.string().trim().min(1, "Ingresa un nombre").max(80),
   inviteCode: inviteCodeInput,
 });
@@ -39,7 +49,7 @@ export const registerSchema = z.object({
 export type RegisterInput = z.infer<typeof registerSchema>;
 
 export const loginSchema = z.object({
-  email: z.email("Ingresa un correo electrónico válido").max(254),
+  email: emailInput,
   password: z.string().min(1, "Ingresa tu contraseña").max(128),
 });
 
@@ -60,3 +70,14 @@ export const tokenInput = z
 export const verifyEmailSchema = z.object({ token: tokenInput });
 
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
+
+export const forgotPasswordSchema = z.object({ email: emailInput });
+
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z.object({
+  token: tokenInput,
+  password: passwordInput,
+});
+
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

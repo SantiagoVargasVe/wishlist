@@ -30,8 +30,36 @@ Auth column below: **—** public · **A** authenticated · **O** owner only
 | POST | `/api/auth/login` | — | `{ email, password }` → `{ user }`, sets cookie. Rate limited. |
 | POST | `/api/auth/logout` | A | Clears cookie |
 | GET | `/api/auth/me` | A | Current user, or 401 |
+| POST | `/api/auth/forgot-password` | — | `{ email }` → **`202`, always**, with an empty body. Rate limited per IP **and** per address. |
+| POST | `/api/auth/reset-password` | — | `{ token, password }` → `204`. Does **not** set a cookie. Rate limited per IP. |
 | POST | `/api/auth/verify-email` | — | `{ token }` → `204`. Marks the address verified. Rate limited per IP. |
 | POST | `/api/auth/resend-verification` | A | `204`. Mints a fresh verification token, invalidating the caller's outstanding one. Rate limited per **user**. |
+
+### Password reset
+
+`/api/auth/forgot-password` returns the **same 202 with the same empty body** for every outcome:
+registered address, unknown address, unverified address, mail send failure. Any branch a client
+can observe is an account-enumeration oracle, so the handler has one return statement and the
+service throws nothing.
+
+Three distinct things silently produce no mail — **unknown**, **unverified**
+([ADR-0013](../adr/0013-email-verification-gates-recovery.md)), and **send failure** — and the
+server log is the only way to tell them apart, so each logs distinctly. When mail is unconfigured
+the token is still minted and the log names `npm run reset-link`, which is the supported delivery
+path in that configuration ([ADR-0011](../adr/0011-outbound-email-via-smtp.md)).
+
+Two rate-limit buckets, and either alone can refuse the request: per IP stops a spray across many
+accounts, per submitted address stops mailbombing one person's inbox from many addresses. The
+address bucket is keyed on a lowercased hash — lowercased because `users.email` is `citext`, so
+bucketing the raw string would let anyone reset the cap by changing capitalisation.
+
+`/api/auth/reset-password` returns `204` and **deliberately does not set a session cookie**, where
+register and login both do. A reset link arriving in a mailbox is not proof of session intent, and
+the user has just proven they can type the new password. Consuming a token also bumps
+`users.sessions_valid_from`, so every existing session on that account ends immediately (T104).
+
+Invalid, expired, already-used and wrong-purpose tokens are one `400 RESET_TOKEN_INVALID`. The
+password is held to registration's rules by reusing that schema, never by restating them.
 
 ### Email verification
 
