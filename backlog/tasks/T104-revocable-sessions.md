@@ -2,7 +2,7 @@
 id: T104
 title: Enforce sessions_valid_from — make JWTs revocable
 epic: E12-account-recovery
-status: todo
+status: done
 depends_on: [T100]
 size: M
 ---

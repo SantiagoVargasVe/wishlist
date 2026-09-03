@@ -15,9 +15,16 @@ beforeAll(() => {
 const key = () => new TextEncoder().encode(SECRET);
 
 describe("session tokens", () => {
-  it("round-trips a user id", async () => {
+  it("round-trips a user id and its issue time", async () => {
+    const before = Math.floor(Date.now() / 1000);
     const token = await signSessionToken("user-123");
-    expect(await verifySessionToken(token)).toEqual({ userId: "user-123" });
+    const claims = await verifySessionToken(token);
+
+    expect(claims?.userId).toBe("user-123");
+    // `iat` is what makes a session revocable (T104): session resolution
+    // compares it against users.sessions_valid_from.
+    expect(claims?.issuedAt).toBeGreaterThanOrEqual(before);
+    expect(claims?.issuedAt).toBeLessThanOrEqual(Math.floor(Date.now() / 1000));
   });
 
   it("rejects a token whose payload was edited", async () => {
@@ -74,6 +81,18 @@ describe("session tokens", () => {
       .sign(key());
 
     expect(await verifySessionToken(expired)).toBeNull();
+  });
+
+  it("rejects a token with no issued-at claim", async () => {
+    // Without `iat` there is no way to tell whether the token predates a
+    // revocation, and "can't tell" has to read as "not a session" (T104).
+    const noIat = await new SignJWT({})
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject("user-123")
+      .setExpirationTime("1h")
+      .sign(key());
+
+    expect(await verifySessionToken(noIat)).toBeNull();
   });
 
   it("rejects a token with no subject", async () => {
