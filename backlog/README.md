@@ -69,6 +69,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 | **E9** post-mvp-ui | Card layout, image-after-add race, form UX gating, price masking, multi-select lists | T080–T084 |
 | **E10** preview-reliability | Why pasted links so often yield no image, and what to do about it | T085–T088 |
 | **E11** post-deploy-ui-polish | Second round of deployed-app UI fixes from real usage (2026-08-30) | T089–T096 |
+| **E12** account-recovery | Password reset: SMTP transport, single-use tokens, revocable sessions | T100–T107 |
 
 ## Task index
 
@@ -229,3 +230,37 @@ E9 round. All frontend, all small.
 - `T095` Guest view: a "log in" entry in the header — anonymous visitors currently can't tell
   the site has accounts
 - `T096` Visitor "Marcar como comprado" button: vertical padding + ≥44px touch target
+
+**E12 — Account recovery**
+
+Password reset, deferred through v1 because the repo didn't own a mail transport. Recovery has
+been an operator editing a hash into the database by hand. Two ADRs set the shape:
+[ADR-0011](../docs/adr/0011-outbound-email-via-smtp.md) (SMTP, provider by config, email
+**optional**) and [ADR-0012](../docs/adr/0012-password-reset-via-single-use-token.md) (single-use
+tokens, and sessions that can actually be revoked).
+
+- `T100` Schema: `password_reset_tokens` + `users.sessions_valid_from`
+- `T101` SMTP mail transport module, optional by config
+- `T102` Reset token service — mint, consume, rate-limit policies
+- `T103` `POST /api/auth/forgot-password` and `/api/auth/reset-password`
+- `T104` Enforce `sessions_valid_from` — make JWTs revocable
+- `T105` `/forgot-password` and `/reset-password/[token]` pages
+- `T106` `scripts/reset-link.ts` — mint a reset link without email
+- `T107` Verify email addresses at registration
+
+**Two things to read before picking any of these up.**
+
+`T104` is the one with blast radius. It puts a DB read on every authenticated request, and it
+reverses a consequence [ADR-0003](../docs/adr/0003-jwt-in-httponly-cookie.md) accepted on
+purpose. It is deliberately a separate task so it can be reviewed on its own rather than
+arriving inside a password-reset PR.
+
+`T107` is not optional polish. Registration has never verified email addresses, which was
+harmless until a reset link started going to them — a mistyped address means the link goes to
+whoever owns the typo, and `/forgot-password` is public, so they can request one at will.
+ADR-0012 accepts that gap **only** because registration is invite-gated to a handful of people
+whose addresses the operator can read straight out of `users`. That justification expires when
+the user list stops fitting on one screen.
+
+The ordering that gets something usable soonest is `T100 → T102 → T106`: real tokens, minted from
+the CLI, with no mail vendor involved at all. `T101/T103/T105` turn it self-service.

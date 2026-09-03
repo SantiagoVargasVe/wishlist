@@ -19,7 +19,7 @@ surprise survives.
 | **Visitor** | Anyone with the link | View the list, mark/unmark items as bought |
 
 A logged-in user looking at *someone else's* list is just a visitor. There is no privilege tier
-beyond "owns this list or doesn't" — see [ADR-0005](../adr/0005-no-role-column.md).
+beyond "owns this list or doesn't" — see [ADR-0006](../adr/0006-no-role-column.md).
 
 ## Core flows
 
@@ -58,8 +58,11 @@ Quantity per item · item priority/ranking · comments or notes from visitors ·
 cross-currency price filtering · email notifications · copying another user's item into your own
 list · public list discovery · mobile apps
 
-Email is *technically* available — the home server has working Gmail SMTP — but password reset is
-deliberately deferred.
+Password reset was deferred through v1 and is **no longer** — see
+[ADR-0011](../adr/0011-outbound-email-via-smtp.md) and
+[ADR-0012](../adr/0012-password-reset-via-single-use-token.md), built as epic E12. Outbound email
+is optional configuration: an operator who sets no SMTP provider still gets recovery, via an
+operator-run script rather than a self-service page. Email *notifications* remain out of scope.
 
 ## What "done" looks like for v1
 
