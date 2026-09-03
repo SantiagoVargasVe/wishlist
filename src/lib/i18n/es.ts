@@ -22,8 +22,38 @@ export const es = {
       submitting: "Iniciando sesión…",
       noAccount: "¿No tienes cuenta?",
       registerLink: "Regístrate",
+      forgotLink: "¿Olvidaste tu contraseña?",
+      // Shown after a successful reset, which deliberately does not log the
+      // user in (T103).
+      resetDone: "Tu contraseña se actualizó. Inicia sesión con la nueva.",
       errors: {
         invalidCredentials: "Correo o contraseña incorrectos",
+      },
+    },
+    forgotPassword: {
+      title: "¿Olvidaste tu contraseña?",
+      intro: "Escribe tu correo y te enviamos un enlace para elegir una contraseña nueva.",
+      email: "Correo electrónico",
+      submit: "Enviar enlace",
+      submitting: "Enviando…",
+      // Never "revisa tu correo": the API cannot confirm whether the address is
+      // registered, so neither can this. Saying otherwise would be a promise
+      // the server did not make (ADR-0012).
+      sent: "Si esa dirección está registrada, te enviamos un enlace para restablecer tu contraseña.",
+      sentHint: "El enlace vence en 30 minutos. Si no llega en unos minutos, revisa el correo no deseado o vuelve a intentarlo.",
+      backToLogin: "Volver a iniciar sesión",
+    },
+    resetPassword: {
+      title: "Elige una contraseña nueva",
+      password: "Contraseña nueva",
+      passwordConfirm: "Repite la contraseña",
+      submit: "Guardar contraseña",
+      submitting: "Guardando…",
+      invalidTitle: "Ese enlace ya no sirve",
+      invalidBody: "Los enlaces para restablecer la contraseña vencen a los 30 minutos y solo se pueden usar una vez.",
+      invalidCta: "Pedir un enlace nuevo",
+      errors: {
+        mismatch: "Las contraseñas no coinciden",
       },
     },
     register: {

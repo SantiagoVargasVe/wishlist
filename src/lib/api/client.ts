@@ -24,13 +24,14 @@ export async function apiFetch<T = void>(
     throw await toApiError(response);
   }
 
-  // DELETE and some POSTs (e.g. list-membership) return 204 with no body —
-  // nothing to parse, and a plain `.json()` call would throw on empty input.
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return response.json() as Promise<T>;
+  // Several routes answer with no body at all: 204 from DELETE and
+  // list-membership, and 202 from `/api/auth/forgot-password`, whose empty body
+  // is deliberate — it is what makes every outcome byte-identical (T103).
+  // Reading as text first and parsing only when there is something to parse
+  // covers all of them; a bare `.json()` throws a SyntaxError on empty input,
+  // which would surface a successful request to the user as a failure.
+  const text = await response.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 async function toApiError(response: Response): Promise<ApiError> {

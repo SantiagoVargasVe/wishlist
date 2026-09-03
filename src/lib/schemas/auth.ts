@@ -81,3 +81,20 @@ export const resetPasswordSchema = z.object({
 });
 
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+
+/**
+ * What the reset *form* validates, as opposed to what the API takes.
+ *
+ * The password rule is the same `passwordInput` object the route parses, so the
+ * two cannot disagree. The confirmation field exists only client-side: the API
+ * has no use for it, and a typo'd new password on an account you are locked out
+ * of is a bad way to find out.
+ */
+export const resetPasswordFormSchema = z
+  .object({ password: passwordInput, passwordConfirm: z.string() })
+  .refine((values) => values.password === values.passwordConfirm, {
+    message: "auth.resetPassword.errors.mismatch",
+    path: ["passwordConfirm"],
+  });
+
+export type ResetPasswordFormInput = z.infer<typeof resetPasswordFormSchema>;
