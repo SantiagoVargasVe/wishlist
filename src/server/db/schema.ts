@@ -42,6 +42,21 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   displayName: text("display_name").notNull(),
   /**
+   * When the address was confirmed to be reachable by whoever owns the account
+   * (ADR-0013). Null means unverified, which is the default and stays the
+   * default for every row that predates this column — a blanket backfill would
+   * bless exactly the mistyped addresses verification exists to catch.
+   *
+   * A timestamp rather than a boolean because it answers "when", which an
+   * audit trail wants and a boolean cannot.
+   *
+   * It gates **one** thing: `/api/auth/forgot-password` sends nothing to an
+   * unverified address. Not login, not any other route. Blocking login would
+   * lock out every existing account on deploy and would make outbound mail a
+   * hard dependency, contradicting ADR-0011.
+   */
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+  /**
    * The account's session epoch: a JWT whose `iat` predates this is no longer
    * a session (ADR-0012). Bumping it on password reset is what makes tokens
    * revocable, which ADR-0003 deferred until something needed it.
@@ -82,6 +97,14 @@ export const inviteCodes = pgTable("invite_codes", {
 });
 
 /**
+ * What a token in `password_reset_tokens` may be spent on. One table with a
+ * discriminator rather than two near-identical ones — see ADR-0013's "Why one
+ * token table", including when to split it later.
+ */
+export const TOKEN_PURPOSES = ["password_reset", "email_verify"] as const;
+export type TokenPurpose = (typeof TOKEN_PURPOSES)[number];
+
+/**
  * Single-use password reset tokens (ADR-0012).
  *
  * The primary key is the token's **SHA-256**, never the token itself: a leaked
@@ -103,6 +126,24 @@ export const passwordResetTokens = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    /**
+     * What this token may be spent on (ADR-0013). Both kinds are the same
+     * object — a high-entropy secret, stored hashed, bound to a user, expiring,
+     * single-use — and they share the atomic-consume statement that is the most
+     * security-sensitive part of ADR-0012. Writing that twice would mean
+     * maintaining two chances to get it wrong.
+     *
+     * The DB default exists for the migration's sake, so existing rows land on
+     * the only value they can honestly have. It is not an invitation to omit
+     * the field: a verification token that silently became a `password_reset`
+     * one would be a reset link mailed to an *unverified* address, which is
+     * precisely the takeover path ADR-0013 closes. Every caller passes it
+     * explicitly, and the service's mint signature requires it.
+     */
+    purpose: text("purpose")
+      .$type<TokenPurpose>()
+      .notNull()
+      .default("password_reset"),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     usedAt: timestamp("used_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -110,7 +151,16 @@ export const passwordResetTokens = pgTable(
       .default(sql`now()`),
   },
   (table) => [
-    /** "Delete this user's other outstanding tokens" is a real query path. */
+    /** A CHECK, not a convention — a typo'd purpose must not be storable. */
+    check(
+      "password_reset_tokens_purpose_valid",
+      sql`${table.purpose} IN ('password_reset', 'email_verify')`,
+    ),
+    /**
+     * "Delete this user's other outstanding tokens" is a real query path. Not
+     * extended with `purpose`: a user holds a handful of rows at most, so the
+     * filter costs nothing the index would save.
+     */
     index("password_reset_tokens_user_idx").on(table.userId),
   ],
 );

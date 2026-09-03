@@ -17,9 +17,19 @@ erDiagram
 
 ### `users`
 `id` uuid pk · `email` citext unique · `password_hash` · `display_name` ·
-`sessions_valid_from` · timestamps
+`email_verified_at` null · `sessions_valid_from` · timestamps
 
 Argon2id for hashing. Email is `citext` so casing never causes a duplicate account.
+
+`email_verified_at` is null until the address is confirmed reachable
+([ADR-0013](../adr/0013-email-verification-gates-recovery.md)). A timestamp rather than a boolean
+because it answers "when", which an audit trail wants and a boolean can't. It gates **exactly
+one** thing — `/api/auth/forgot-password` sends nothing to an unverified address — and nothing
+else: not login, not any other route. Blocking login would lock out every existing account on
+deploy and make outbound mail a hard dependency, contradicting
+[ADR-0011](../adr/0011-outbound-email-via-smtp.md). **Existing rows are deliberately not
+backfilled**; a blanket backfill would bless exactly the mistyped addresses verification exists
+to catch.
 
 `sessions_valid_from` is the account's **session epoch**: a session JWT whose `iat` predates it
 is no longer a session. It is what makes tokens revocable, which
@@ -35,8 +45,8 @@ always "the account's epoch".
 Single-use. Registration is invite-gated because the site sits on a public URL.
 
 ### `password_reset_tokens`
-`token_hash` pk (sha256 of the token) · `user_id` → users **cascade** · `expires_at` ·
-`used_at` null · `created_at`
+`token_hash` pk (sha256 of the token) · `user_id` → users **cascade** · `purpose` ·
+`expires_at` · `used_at` null · `created_at`
 
 Single-use recovery tokens ([ADR-0012](../adr/0012-password-reset-via-single-use-token.md)).
 Three things are load-bearing:
@@ -51,9 +61,23 @@ Three things are load-bearing:
   the same shape as invite consumption and for the same reason: a read-then-write lets two
   concurrent requests both observe an unused token.
 
+`purpose` ∈ `password_reset | email_verify`, enforced by a CHECK rather than convention. One
+table with a discriminator, not two near-identical ones: both kinds are the same object — a
+high-entropy secret, stored hashed, bound to a user, expiring, single-use — and they share the
+atomic-consume statement that is the most security-sensitive and most easily-got-wrong part of
+ADR-0012. If a purpose ever needs its own columns, splitting the table then is a mechanical
+migration; reconciling two subtly different consume implementations is not.
+
+The column carries a database default of `password_reset`, which exists so existing rows land on
+the only value they can honestly have when the migration runs. It is **not** an invitation to
+omit the field — a verification token that silently became a `password_reset` one would be a
+reset link mailed to an unverified address, which is the takeover path ADR-0013 closes. Every
+caller passes it explicitly, and consumption filters on it in both directions.
+
 The index on `user_id` serves "delete this user's other outstanding tokens", which consumption
-does. Rows accumulate — a row per request, never swept — which at this scale is a rounding
-error.
+does. It is deliberately not extended with `purpose` — a user holds a handful of rows at most, so
+the filter costs nothing the index would save. Rows accumulate — a row per request, never swept —
+which at this scale is a rounding error.
 
 ### `wishlists`
 `id` uuid pk · `owner_id` → users · `title` · `slug` unique · `is_default` bool ·

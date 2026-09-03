@@ -309,6 +309,65 @@ describe.skipIf(!hasTestDatabase)("core schema", () => {
         .returning();
       expect(row.usedAt).toBeNull();
     });
+
+    it("defaults to the password_reset purpose", async () => {
+      // The value existing rows land on in the migration — the only one they
+      // can honestly have, since no verification token existed before it.
+      const [row] = await ctx.db
+        .insert(passwordResetTokens)
+        .values({ tokenHash: "defaulted", userId: ownerId, expiresAt: hourFromNow() })
+        .returning();
+      expect(row.purpose).toBe("password_reset");
+    });
+
+    it("accepts both purposes", async () => {
+      for (const purpose of ["password_reset", "email_verify"] as const) {
+        const code = await pgErrorCode(
+          ctx.db.insert(passwordResetTokens).values({
+            tokenHash: `t-${purpose}`,
+            userId: ownerId,
+            purpose,
+            expiresAt: hourFromNow(),
+          }),
+        );
+        expect(code).toBeUndefined();
+      }
+    });
+
+    it("rejects an unknown purpose", async () => {
+      // A CHECK rather than a convention: one table serves two kinds of token,
+      // so a typo'd discriminator must not be storable at all.
+      const code = await pgErrorCode(
+        ctx.db.insert(passwordResetTokens).values({
+          tokenHash: "bogus",
+          userId: ownerId,
+          purpose: "account_takeover" as never,
+          expiresAt: hourFromNow(),
+        }),
+      );
+      expect(code).toBe(PG_CHECK_VIOLATION);
+    });
+
+    it("removes both kinds of token when the user is deleted", async () => {
+      await ctx.db.insert(passwordResetTokens).values([
+        { tokenHash: "reset", userId: ownerId, purpose: "password_reset", expiresAt: hourFromNow() },
+        { tokenHash: "verify", userId: ownerId, purpose: "email_verify", expiresAt: hourFromNow() },
+      ]);
+
+      await ctx.db.delete(users).where(eq(users.id, ownerId));
+
+      expect(await ctx.db.select().from(passwordResetTokens)).toHaveLength(0);
+    });
+  });
+
+  describe("users.email_verified_at", () => {
+    it("starts null — an address is unverified until it is verified", async () => {
+      const [row] = await ctx.db
+        .insert(users)
+        .values(newUser("unverified@example.com"))
+        .returning();
+      expect(row.emailVerifiedAt).toBeNull();
+    });
   });
 
   describe("users.sessions_valid_from", () => {
