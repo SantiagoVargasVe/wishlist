@@ -43,6 +43,24 @@ export const es = {
       },
     },
   },
+  // Bodies of outbound email. Server-side only — rendered by
+  // `src/server/mail/templates/`, never by a component.
+  mail: {
+    verifyEmail: {
+      subject: "Confirma tu correo",
+      greeting: "Hola {name}:",
+      // States the actual consequence rather than a generic "verify your
+      // email": verifying is what makes password recovery possible, and
+      // nothing else changes (ADR-0013).
+      body:
+        "Confirma tu correo para poder recuperar tu contraseña si algún día la olvidas. " +
+        "Tu cuenta ya funciona con normalidad; esto solo habilita la recuperación.",
+      cta: "Confirmar mi correo",
+      linkFallback: "Si el enlace no funciona, cópialo y pégalo en tu navegador:",
+      expiry: "El enlace vence en {hours} horas y solo se puede usar una vez.",
+      ignore: "Si no creaste esta cuenta, puedes ignorar este mensaje.",
+    },
+  },
   errors: {
     generic: "Algo salió mal. Intenta de nuevo.",
     rateLimited: "Demasiados intentos. Intenta de nuevo en {seconds} segundos.",

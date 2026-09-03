@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-import { defineConfig } from "vitest/config";
+import { defaultExclude, defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "url";
 
@@ -41,7 +41,14 @@ export default defineConfig({
         test: {
           name: "server",
           environment: "node",
-          include: ["src/server/**/*.{test,spec}.ts"],
+          // Route handlers live under src/app but are server code: plain Node,
+          // no DOM, and they import `server-only` modules that only resolve
+          // under this project's alias. Running them in the ui project would
+          // fail on the first import.
+          include: [
+            "src/server/**/*.{test,spec}.ts",
+            "src/app/api/**/*.{test,spec}.ts",
+          ],
           env: passthroughEnv,
         },
       },
@@ -61,6 +68,9 @@ export default defineConfig({
           globals: true,
           setupFiles: ["./vitest.setup.ts"],
           include: ["src/{app,lib}/**/*.{test,spec}.{ts,tsx}"],
+          // Claimed by the server project above. Spread the defaults back in —
+          // setting `exclude` replaces them rather than adding to them.
+          exclude: [...defaultExclude, "src/app/api/**"],
         },
       },
     ],

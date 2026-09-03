@@ -2,7 +2,7 @@
 id: T108
 title: Verification service, registration send, and verify endpoint
 epic: E12-account-recovery
-status: todo
+status: done
 depends_on: [T101, T107]
 size: M
 ---

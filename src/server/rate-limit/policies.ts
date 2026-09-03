@@ -56,4 +56,20 @@ export const policies = {
    * endpoint is a free way to pin the box.
    */
   passwordResetConsume: { capacity: 10, windowSeconds: 15 * MINUTE },
+
+  /**
+   * T108, per IP. The verify endpoint is unauthenticated and consumes a token,
+   * so it needs its own cap (ADR-0013). Roomier than the reset equivalent
+   * because it costs no Argon2 hash — this is only about a client hammering a
+   * DB write path.
+   */
+  emailVerify: { capacity: 20, windowSeconds: 15 * MINUTE },
+
+  /**
+   * T108, per user — the endpoint is authenticated, so the account is the
+   * honest key. Each call sends real mail to a real inbox, and someone who
+   * hasn't received the first one within a few tries has a problem no further
+   * resend will fix.
+   */
+  emailVerifyResend: { capacity: 3, windowSeconds: HOUR },
 } as const satisfies Record<string, RateLimitPolicy>;

@@ -10,6 +10,7 @@ import { PG_UNIQUE_VIOLATION, isPgError } from "../db/pg-errors";
 import { InviteErrors, emailTaken, invalidCredentials } from "../errors";
 import { generateInviteCode } from "@/lib/invite-code";
 import type { LoginInput, RegisterInput } from "@/lib/schemas/auth";
+import { sendVerificationEmail } from "./email-verification";
 import { createDefaultWishlist, type PublicWishlist } from "./wishlists";
 
 /** What callers may see. Never includes the password hash. */
@@ -64,7 +65,7 @@ export async function registerUser(
   // and holding a transaction open for it would pin a connection for no reason.
   const passwordHash = await hashPassword(input.password);
 
-  return db.transaction(async (tx) => {
+  const { user, wishlist } = await db.transaction(async (tx) => {
     let user: PublicUser;
 
     try {
@@ -118,6 +119,20 @@ export async function registerUser(
 
     return { user, wishlist };
   });
+
+  // **After** the transaction commits, and awaited only so a slow SMTP server
+  // is bounded by the transport's own timeout rather than left dangling.
+  // `sendVerificationEmail` swallows everything: a mail failure must never roll
+  // back a registration that already succeeded, and it must never become an
+  // error the new user sees. They are registered, logged in, and unverified —
+  // the only thing they cannot do is self-serve a password reset (ADR-0013),
+  // and `npm run reset-link` covers them until they verify.
+  await sendVerificationEmail(
+    { id: user.id, email: user.email, displayName: user.displayName },
+    db,
+  );
+
+  return { user, wishlist };
 }
 
 /**

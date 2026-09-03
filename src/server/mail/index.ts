@@ -80,8 +80,13 @@ function getTransporter(): Transporter {
   });
 }
 
-/** The part of an address that is safe to log. See the logging rule in security.md. */
-function recipientDomain(address: string): string {
+/**
+ * The part of an address that is safe to log. See the logging rule in
+ * security.md — an address in a log is the account enumeration this flow works
+ * hard to avoid everywhere else. Exported so every caller that logs a mail
+ * failure applies the same rule rather than reinventing it.
+ */
+export function recipientDomain(address: string): string {
   return address.slice(address.lastIndexOf("@") + 1) || "unknown";
 }
 

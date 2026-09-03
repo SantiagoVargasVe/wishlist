@@ -30,6 +30,32 @@ Auth column below: **—** public · **A** authenticated · **O** owner only
 | POST | `/api/auth/login` | — | `{ email, password }` → `{ user }`, sets cookie. Rate limited. |
 | POST | `/api/auth/logout` | A | Clears cookie |
 | GET | `/api/auth/me` | A | Current user, or 401 |
+| POST | `/api/auth/verify-email` | — | `{ token }` → `204`. Marks the address verified. Rate limited per IP. |
+| POST | `/api/auth/resend-verification` | A | `204`. Mints a fresh verification token, invalidating the caller's outstanding one. Rate limited per **user**. |
+
+### Email verification
+
+Registration sends a verification mail **after** its transaction commits, and the account is
+usable immediately. A mail failure — or no mail configuration at all — never fails a
+registration: the user is registered, logged in, and unverified.
+
+`/api/auth/verify-email` is deliberately **unauthenticated**. Someone opening a link from their
+mailbox on another device has no session, and requiring one would defeat the point; possession of
+the token is the permission, which is why the route carries its own rate limit
+([ADR-0013](../adr/0013-email-verification-gates-recovery.md)).
+
+Invalid, expired, already-used and **wrong-purpose** tokens all return the same
+`400 VERIFICATION_TOKEN_INVALID`. Reset and verification tokens share one table with a `purpose`
+discriminator, and the purpose is part of the claim's `WHERE` clause rather than a check
+afterwards — so a reset token presented here is not found at all, and a verification token
+presented to `/api/auth/reset-password` fails the same way. Neither can ever be spent as the
+other.
+
+**Verification gates exactly one thing**, and it is not this route: `/api/auth/forgot-password`
+sends nothing to an unverified address. Not login, not any other endpoint. Blocking login would
+lock out every existing account on deploy and make outbound mail a hard dependency, contradicting
+[ADR-0011](../adr/0011-outbound-email-via-smtp.md). A verification check appearing anywhere else
+is a bug.
 
 ## Owner data
 
