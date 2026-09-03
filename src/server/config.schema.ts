@@ -16,7 +16,7 @@ const postgresUrl = z
     "must be a postgresql:// connection string",
   );
 
-export const configSchema = z.object({
+const baseConfigSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
@@ -73,6 +73,55 @@ export const configSchema = z.object({
   // before — this integration is additive, never a new hard dependency.
   MELI_CLIENT_ID: z.string().min(1).optional(),
   MELI_CLIENT_SECRET: z.string().min(1).optional(),
+
+  // Outbound SMTP (ADR-0011). All five optional: an operator running no mail
+  // vendor is a supported configuration, not a broken one, so unset means the
+  // app boots normally with email disabled. Anything built on top degrades
+  // rather than breaks — `scripts/reset-link.ts` (T106) is the recovery path
+  // in that configuration.
+  //
+  // The provider is entirely a matter of these five values; nothing in the
+  // code knows Resend exists.
+  MAIL_SMTP_HOST: z.string().min(1).optional(),
+  MAIL_SMTP_PORT: z.coerce.number().int().positive().optional(),
+  MAIL_SMTP_USER: z.string().min(1).optional(),
+  MAIL_SMTP_PASS: z.string().min(1).optional(),
+  // A bare address, not `Name <addr@host>`. Narrower than SMTP allows, on
+  // purpose: a malformed From is the kind of thing that fails at the provider
+  // on the one send that matters, and this is the cheap place to catch it.
+  MAIL_FROM: z.email().optional(),
+});
+
+/** The five keys that make up the mail transport, as one all-or-nothing group. */
+const MAIL_KEYS = [
+  "MAIL_SMTP_HOST",
+  "MAIL_SMTP_PORT",
+  "MAIL_SMTP_USER",
+  "MAIL_SMTP_PASS",
+  "MAIL_FROM",
+] as const;
+
+/**
+ * Mail config is all-or-nothing.
+ *
+ * A half-configured mailer — a host with no password, say — is the worst of
+ * the three states: `isMailConfigured()` would have to pick a side, and
+ * whichever it picked, the failure surfaces at 3am on the one send that
+ * matters rather than at boot. Either all five are set or none are.
+ */
+export const configSchema = baseConfigSchema.superRefine((config, ctx) => {
+  const missing = MAIL_KEYS.filter((key) => config[key] === undefined);
+  if (missing.length === 0 || missing.length === MAIL_KEYS.length) return;
+
+  for (const key of missing) {
+    ctx.addIssue({
+      code: "custom",
+      path: [key],
+      message:
+        "mail is partially configured — set all of MAIL_SMTP_HOST, MAIL_SMTP_PORT, " +
+        "MAIL_SMTP_USER, MAIL_SMTP_PASS and MAIL_FROM, or none of them",
+    });
+  }
 });
 
 export type Config = z.infer<typeof configSchema>;
