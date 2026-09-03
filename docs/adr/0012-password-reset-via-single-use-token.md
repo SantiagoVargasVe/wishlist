@@ -101,10 +101,17 @@ typo'd address. Because the endpoint is public, that person doesn't have to wait
 — once they know the account exists they can request a reset at will. The failure mode is
 account takeover, not merely a locked-out user.
 
-It is accepted for now, on three specific grounds: registration is invite-gated to a known
+**This was initially accepted** on three grounds — registration is invite-gated to a known
 handful of people, their addresses can be checked directly against the `users` table by the
-operator, and T107 adds verification at registration. **If this app's user base ever stops being
-a list the operator can read in one screen, T107 stops being optional.**
+operator, and verification was planned as a follow-up. That has since been reconsidered and
+rejected: the grounds describe why the gap is *small*, not why it is *safe*, and shipping
+recovery on top of unverified addresses builds the takeover path rather than inheriting it.
+
+[ADR-0013](0013-email-verification-gates-recovery.md) closes it. Verification is a prerequisite
+of self-service reset, not a follow-up to it — `/forgot-password` sends nothing to an unverified
+address. Verification deliberately gates **only** recovery, never login, so no existing account
+is locked out and outbound mail stays optional per
+[ADR-0011](0011-outbound-email-via-smtp.md).
 
 ## Consequences
 

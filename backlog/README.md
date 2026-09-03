@@ -69,7 +69,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 | **E9** post-mvp-ui | Card layout, image-after-add race, form UX gating, price masking, multi-select lists | T080–T084 |
 | **E10** preview-reliability | Why pasted links so often yield no image, and what to do about it | T085–T088 |
 | **E11** post-deploy-ui-polish | Second round of deployed-app UI fixes from real usage (2026-08-30) | T089–T096 |
-| **E12** account-recovery | Password reset: SMTP transport, single-use tokens, revocable sessions | T100–T107 |
+| **E12** account-recovery | Password reset: SMTP transport, single-use tokens, revocable sessions, email verification | T100–T109 |
 
 ## Task index
 
@@ -234,10 +234,12 @@ E9 round. All frontend, all small.
 **E12 — Account recovery**
 
 Password reset, deferred through v1 because the repo didn't own a mail transport. Recovery has
-been an operator editing a hash into the database by hand. Two ADRs set the shape:
+been an operator editing a hash into the database by hand. Three ADRs set the shape:
 [ADR-0011](../docs/adr/0011-outbound-email-via-smtp.md) (SMTP, provider by config, email
-**optional**) and [ADR-0012](../docs/adr/0012-password-reset-via-single-use-token.md) (single-use
-tokens, and sessions that can actually be revoked).
+**optional**), [ADR-0012](../docs/adr/0012-password-reset-via-single-use-token.md) (single-use
+tokens, and sessions that can actually be revoked), and
+[ADR-0013](../docs/adr/0013-email-verification-gates-recovery.md) (verified addresses gate
+recovery, and nothing else).
 
 - `T100` Schema: `password_reset_tokens` + `users.sessions_valid_from`
 - `T101` SMTP mail transport module, optional by config
@@ -246,21 +248,31 @@ tokens, and sessions that can actually be revoked).
 - `T104` Enforce `sessions_valid_from` — make JWTs revocable
 - `T105` `/forgot-password` and `/reset-password/[token]` pages
 - `T106` `scripts/reset-link.ts` — mint a reset link without email
-- `T107` Verify email addresses at registration
+- `T107` Schema: `users.email_verified_at` + token `purpose` column
+- `T108` Verification service, registration send, and verify endpoint
+- `T109` Verification UI — prompt, resend, `/verify-email/[token]`
 
-**Two things to read before picking any of these up.**
+**Three things to read before picking any of these up.**
 
 `T104` is the one with blast radius. It puts a DB read on every authenticated request, and it
 reverses a consequence [ADR-0003](../docs/adr/0003-jwt-in-httponly-cookie.md) accepted on
 purpose. It is deliberately a separate task so it can be reviewed on its own rather than
 arriving inside a password-reset PR.
 
-`T107` is not optional polish. Registration has never verified email addresses, which was
-harmless until a reset link started going to them — a mistyped address means the link goes to
-whoever owns the typo, and `/forgot-password` is public, so they can request one at will.
-ADR-0012 accepts that gap **only** because registration is invite-gated to a handful of people
-whose addresses the operator can read straight out of `users`. That justification expires when
-the user list stops fitting on one screen.
+**`T103` depends on `T108` on purpose — don't break that to unblock a release.** Registration has
+never verified email addresses, which was harmless until a reset link started going to them: a
+mistyped address means the link goes to whoever owns the typo, and `/forgot-password` is public,
+so they can request one at will. ADR-0012 originally accepted that gap; ADR-0013 reconsidered and
+closed it. The gate lives *inside* T103's acceptance criteria rather than in a follow-up task
+specifically so that self-service reset cannot ship without it.
 
-The ordering that gets something usable soonest is `T100 → T102 → T106`: real tokens, minted from
-the CLI, with no mail vendor involved at all. `T101/T103/T105` turn it self-service.
+**Verification gates recovery and nothing else** — not login, not any other route. Blocking login
+would lock out every existing account on deploy and would make outbound mail a hard dependency,
+contradicting ADR-0011. If a task in this epic starts adding verification checks elsewhere, it has
+gone wrong. Existing rows are deliberately **not** backfilled to verified; see ADR-0013.
+
+Two useful orderings. `T100 → T102 → T106` gets working recovery soonest with **no mail vendor at
+all** — real single-use tokens, minted from the CLI, delivered however the operator likes; this is
+also the path that stays available to unverified users. `T101 → T107 → T108 → T103 → T105 → T109`
+is the full self-service flow, and its order is what keeps the verification gate structural rather
+than aspirational.

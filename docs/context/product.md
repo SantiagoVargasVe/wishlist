@@ -60,9 +60,12 @@ list · public list discovery · mobile apps
 
 Password reset was deferred through v1 and is **no longer** — see
 [ADR-0011](../adr/0011-outbound-email-via-smtp.md) and
-[ADR-0012](../adr/0012-password-reset-via-single-use-token.md), built as epic E12. Outbound email
-is optional configuration: an operator who sets no SMTP provider still gets recovery, via an
-operator-run script rather than a self-service page. Email *notifications* remain out of scope.
+[ADR-0012](../adr/0012-password-reset-via-single-use-token.md), built as epic E12. Registration
+now verifies the address, because a reset link is only as safe as the mailbox it goes to — but
+verification gates **recovery only**, never login
+([ADR-0013](../adr/0013-email-verification-gates-recovery.md)). Outbound email is optional
+configuration: an operator who sets no SMTP provider still gets recovery, via an operator-run
+script rather than a self-service page. Email *notifications* remain out of scope.
 
 ## What "done" looks like for v1
 
