@@ -2,7 +2,7 @@
 id: T101
 title: SMTP mail transport module, optional by config
 epic: E12-account-recovery
-status: todo
+status: done
 depends_on: []
 size: S
 ---
