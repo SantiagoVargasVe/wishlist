@@ -3,7 +3,7 @@ import "server-only";
 import { cookies } from "next/headers";
 
 import { UnauthorizedError } from "../errors";
-import { getSessionsValidFrom } from "../services/auth";
+import { getSessionAccount } from "../services/auth";
 import { sessionCookieName } from "./cookie";
 import { verifySessionToken } from "./jwt";
 
@@ -27,7 +27,17 @@ import { verifySessionToken } from "./jwt";
  * effect immediately. Do not add a cache here; a cache reintroduces exactly the
  * staleness this removes.
  */
-export async function currentUserId(): Promise<string | null> {
+export type CurrentSession = {
+  userId: string;
+  /**
+   * Carried out of the same read rather than costing a second query. The app
+   * shell needs it on every render to decide whether to prompt (T109), and it
+   * gates exactly one thing elsewhere — `/forgot-password` (ADR-0013).
+   */
+  emailVerified: boolean;
+};
+
+export async function currentSession(): Promise<CurrentSession | null> {
   const store = await cookies();
   const token = store.get(sessionCookieName())?.value;
   if (!token) return null;
@@ -35,14 +45,22 @@ export async function currentUserId(): Promise<string | null> {
   const claims = await verifySessionToken(token);
   if (!claims) return null;
 
-  // Exactly one read, and the only one: `requireUserId` delegates here rather
-  // than repeating it.
-  const validFrom = await getSessionsValidFrom(claims.userId);
+  // Exactly one read, and the only one: `currentUserId` and `requireUserId`
+  // both delegate here rather than repeating it.
+  const account = await getSessionAccount(claims.userId);
   // No row means the user was deleted. Nothing to compare against, and "the
   // account is gone" has to read as "not logged in", not as an exception.
-  if (!validFrom) return null;
+  if (!account) return null;
+  if (!isIssuedAfter(claims.issuedAt, account.sessionsValidFrom)) return null;
 
-  return isIssuedAfter(claims.issuedAt, validFrom) ? claims.userId : null;
+  return {
+    userId: claims.userId,
+    emailVerified: account.emailVerifiedAt !== null,
+  };
+}
+
+export async function currentUserId(): Promise<string | null> {
+  return (await currentSession())?.userId ?? null;
 }
 
 /**

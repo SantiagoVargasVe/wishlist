@@ -53,6 +53,12 @@ export function ForgotPasswordForm() {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
       <p className="text-sm text-muted-foreground">{t("auth.forgotPassword.intro")}</p>
+      {/* This page is where an unverified user hits the wall: the endpoint
+          answers the same 202 either way and sends them nothing (ADR-0013), so
+          without this the failure would be completely invisible to them. */}
+      <p className="text-sm text-muted-foreground">
+        {t("auth.forgotPassword.verifiedRequired")}
+      </p>
       <Field label={t("auth.forgotPassword.email")} error={errors.email?.message}>
         <Input type="email" autoComplete="email" {...register("email")} />
       </Field>

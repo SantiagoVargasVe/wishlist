@@ -197,27 +197,40 @@ export async function createInvite(userId: string, db: Db = getDb()): Promise<In
   return { code, expiresAt };
 }
 
+/** What resolving a session needs to know about the account. */
+export type SessionAccount = {
+  sessionsValidFrom: Date;
+  emailVerifiedAt: Date | null;
+};
+
 /**
- * The account's session epoch, or null when there is no such user.
+ * The account behind a session token, or null when there is no such user.
  *
- * One narrow read on the hottest path in the app — `currentUserId()` calls it
- * on every authenticated request (T104) — so it selects one column and
+ * One narrow read on the hottest path in the app — session resolution calls it
+ * on every authenticated request (T104) — so it selects two columns and
  * deliberately does not reuse `getUserById`.
+ *
+ * `emailVerifiedAt` rides along rather than costing a second query (T109): the
+ * app shell needs it on every render to decide whether to show the verification
+ * prompt, and it is already on the row being read.
  *
  * Null covers a deleted user. The row is gone, so there is nothing to compare
  * against, and the caller reads that as "not logged in" rather than throwing.
  */
-export async function getSessionsValidFrom(
+export async function getSessionAccount(
   userId: string,
   db: Db = getDb(),
-): Promise<Date | null> {
+): Promise<SessionAccount | null> {
   const [row] = await db
-    .select({ sessionsValidFrom: users.sessionsValidFrom })
+    .select({
+      sessionsValidFrom: users.sessionsValidFrom,
+      emailVerifiedAt: users.emailVerifiedAt,
+    })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
 
-  return row?.sessionsValidFrom ?? null;
+  return row ?? null;
 }
 
 /** Look up a user by id. Returns null rather than throwing — callers decide. */
