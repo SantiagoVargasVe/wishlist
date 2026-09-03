@@ -19,6 +19,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "seed:invite": "tsx scripts/seed-invite.ts",
+    "reset-link": "tsx --conditions=react-server scripts/reset-link.ts",
     "test:ci": "npm run lint && npm run typecheck && npm test -- --coverage && npm run build"
   },
   "dependencies": {

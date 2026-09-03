@@ -29,6 +29,27 @@ npm run dev
 Open http://localhost:3000. Registration needs an invite code — seed one with
 `npm run seed:invite`.
 
+## Operator scripts
+
+```bash
+npm run seed:invite                        # mint a registration code
+npm run reset-link -- ana@example.com      # mint a password reset link
+```
+
+`reset-link` prints a ready-to-use URL and **sends nothing**. It is the supported way to recover
+an account without a mail provider, not an emergency hack: outbound email is optional by design
+([ADR-0011](docs/adr/0011-outbound-email-via-smtp.md)), so an operator who runs no SMTP provider
+recovers accounts this way and everything else about the flow is identical — same 30-minute
+expiry, same single-use token, same table as the self-service endpoint.
+
+It is also the path that stays open when a mail provider is failing, and the one that works for
+an account whose address isn't verified ([ADR-0013](docs/adr/0013-email-verification-gates-recovery.md)):
+an operator minting a link has established identity out of band, which is a stronger signal than
+an email round-trip.
+
+The printed URL is a credential — single use, 30 minutes, and whoever holds it can take the
+account. Deliver it over something you trust.
+
 ## Documentation
 
 This repo is built to be worked on with AI agents, so the context is the primary artifact.
