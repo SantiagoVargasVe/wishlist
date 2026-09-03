@@ -16,14 +16,44 @@ erDiagram
 ## Tables
 
 ### `users`
-`id` uuid pk · `email` citext unique · `password_hash` · `display_name` · timestamps
+`id` uuid pk · `email` citext unique · `password_hash` · `display_name` ·
+`sessions_valid_from` · timestamps
 
 Argon2id for hashing. Email is `citext` so casing never causes a duplicate account.
+
+`sessions_valid_from` is the account's **session epoch**: a session JWT whose `iat` predates it
+is no longer a session. It is what makes tokens revocable, which
+[ADR-0003](../adr/0003-jwt-in-httponly-cookie.md) deferred and
+[ADR-0012](../adr/0012-password-reset-via-single-use-token.md) needed — a password reset that
+leaves someone else's 30-day cookie working has done nothing about the actual problem. Not
+nullable: a null would push "what does null mean here" onto every read site, and the answer is
+always "the account's epoch".
 
 ### `invite_codes`
 `code` pk · `created_by` → users · `used_by` → users null · `used_at` · `expires_at` · `created_at`
 
 Single-use. Registration is invite-gated because the site sits on a public URL.
+
+### `password_reset_tokens`
+`token_hash` pk (sha256 of the token) · `user_id` → users **cascade** · `expires_at` ·
+`used_at` null · `created_at`
+
+Single-use recovery tokens ([ADR-0012](../adr/0012-password-reset-via-single-use-token.md)).
+Three things are load-bearing:
+
+- **Only the SHA-256 is stored.** A leaked backup, or a stray `SELECT *` in a log, then hands
+  over nothing usable. SHA-256 and not Argon2 on purpose: the token is 256 bits from a CSPRNG,
+  so it isn't guessable at any cost per attempt, and a memory-hard hash would add ~100ms to
+  every lookup for nothing. That reasoning does *not* transfer to passwords.
+- **A table rather than a signed JWT**, because a reset link must be single-use and
+  statelessness is exactly what makes that impossible.
+- **Consumption is one conditional UPDATE** (`WHERE used_at IS NULL AND expires_at > now()`),
+  the same shape as invite consumption and for the same reason: a read-then-write lets two
+  concurrent requests both observe an unused token.
+
+The index on `user_id` serves "delete this user's other outstanding tokens", which consumption
+does. Rows accumulate — a row per request, never swept — which at this scale is a rounding
+error.
 
 ### `wishlists`
 `id` uuid pk · `owner_id` → users · `title` · `slug` unique · `is_default` bool ·

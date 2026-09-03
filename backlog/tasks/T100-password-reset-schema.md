@@ -2,7 +2,7 @@
 id: T100
 title: Schema — password_reset_tokens + users.sessions_valid_from
 epic: E12-account-recovery
-status: todo
+status: done
 depends_on: []
 size: S
 ---

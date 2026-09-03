@@ -41,6 +41,18 @@ export const users = pgTable("users", {
   email: citext("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   displayName: text("display_name").notNull(),
+  /**
+   * The account's session epoch: a JWT whose `iat` predates this is no longer
+   * a session (ADR-0012). Bumping it on password reset is what makes tokens
+   * revocable, which ADR-0003 deferred until something needed it.
+   *
+   * Not nullable, and defaulted rather than left empty. A null would force
+   * every read site to decide what null means, and the answer is always "the
+   * account's epoch" — so the column says that instead of the callers.
+   */
+  sessionsValidFrom: timestamp("sessions_valid_from", { withTimezone: true })
+    .notNull()
+    .default(sql`now()`),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .default(sql`now()`),
@@ -68,6 +80,40 @@ export const inviteCodes = pgTable("invite_codes", {
     .notNull()
     .default(sql`now()`),
 });
+
+/**
+ * Single-use password reset tokens (ADR-0012).
+ *
+ * The primary key is the token's **SHA-256**, never the token itself: a leaked
+ * backup or a stray `SELECT *` in a log then hands over nothing usable. SHA-256
+ * rather than Argon2 is deliberate and is not an oversight — the ADR's "Why
+ * SHA-256 for the token" has the reasoning, in short that a 256-bit CSPRNG
+ * secret is not guessable at any cost per attempt, so a memory-hard hash would
+ * add ~100ms to every lookup and buy nothing.
+ *
+ * A table rather than a signed JWT because a reset link must be **single-use**,
+ * and statelessness is precisely the property that makes that impossible.
+ * Consumption is one conditional UPDATE (T102), for the same reason invite
+ * consumption is.
+ */
+export const passwordResetTokens = pgTable(
+  "password_reset_tokens",
+  {
+    tokenHash: text("token_hash").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .default(sql`now()`),
+  },
+  (table) => [
+    /** "Delete this user's other outstanding tokens" is a real query path. */
+    index("password_reset_tokens_user_idx").on(table.userId),
+  ],
+);
 
 /**
  * Token buckets for rate limiting.
@@ -276,6 +322,8 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type InviteCode = typeof inviteCodes.$inferSelect;
 export type NewInviteCode = typeof inviteCodes.$inferInsert;
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+export type NewPasswordResetToken = typeof passwordResetTokens.$inferInsert;
 export type RateLimit = typeof rateLimits.$inferSelect;
 export type OgCache = typeof ogCache.$inferSelect;
 export type NewOgCache = typeof ogCache.$inferInsert;
