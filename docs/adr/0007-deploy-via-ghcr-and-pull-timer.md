@@ -45,6 +45,14 @@ emulation, and makes deploys depend on one laptop being awake.
   for a hobby project; nothing here needs instant rollout.
 - The timer is a plain `docker compose pull && docker compose up -d`. Docker no-ops when the
   image digest is unchanged, so polling costs nothing.
+- **Extended by T111: the tick also syncs the compose file itself**, fetched from this repository
+  over HTTPS. Originally the timer moved only the image, which left `docker-compose.prod.yml` a
+  template that somebody had to remember to copy — and a change to it (a new environment
+  variable, say) silently never reached the deployment. The cost is that a commit to `main` now
+  reconfigures the deployment rather than only replacing the application, so the fetch is
+  validated before it is swapped in and a failed fetch leaves the working file alone. `.env` is
+  deliberately not synced: it holds secrets, and it is what any per-deployment difference belongs
+  in.
 - Rollback is `docker compose` pinned to a previous image tag. Tag images with both `latest` and
   the commit SHA so a specific version is always addressable.
 - If the GHCR package is public, the host needs no registry credentials at all. If it's made
