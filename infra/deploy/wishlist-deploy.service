@@ -5,7 +5,12 @@ Requires=docker.service
 
 [Service]
 Type=oneshot
-WorkingDirectory=/home/robin/nas/wishlist
+# ── Edit these three to match the deployment host before installing ──────────
+# `WorkingDirectory` is the directory holding docker-compose.yml and .env.
+# `User` must own that directory and be in the docker group. They are left as
+# placeholders on purpose: this repo is public, and a real path and account name
+# describe somebody's machine rather than the software.
+WorkingDirectory=/srv/wishlist
 # The compose file is fetched from the repository on every tick, so a change to
 # infra/docker-compose.prod.yml reaches the deployment instead of sitting in a
 # template nobody remembered to copy. A fork changes this one line.
@@ -25,5 +30,5 @@ ExecStart=/bin/sh -c 'if [ -s docker-compose.yml.incoming ] && docker compose -f
 # new costs one file fetch and one registry HEAD request.
 ExecStart=/usr/bin/docker compose pull --quiet
 ExecStart=/usr/bin/docker compose up -d
-User=robin
+User=wishlist
 Group=docker
