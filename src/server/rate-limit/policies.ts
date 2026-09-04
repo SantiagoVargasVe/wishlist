@@ -35,4 +35,25 @@ export const policies = {
 
   /** T070. Minting is deliberate and infrequent — a handful of relatives, not bulk. */
   invite: { capacity: 5, windowSeconds: DAY },
+
+  /**
+   * T103, per ADR-0012. Applied twice per request — once per IP, once per
+   * submitted email address — and neither substitutes for the other: the IP
+   * bucket stops a spray across many accounts, the email bucket stops
+   * mailbombing one person's inbox from many addresses.
+   *
+   * 3/hour because someone who genuinely needs a reset asks once, maybe twice
+   * after not finding the mail. It is also the only cap on how much outbound
+   * mail one address can cause, which matters on a provider with a daily
+   * ceiling.
+   */
+  passwordResetRequest: { capacity: 3, windowSeconds: HOUR },
+
+  /**
+   * T103, per IP. With 256 bits of entropy this is not stopping a guess — the
+   * token does that. It stops CPU burn: every attempt costs an Argon2 hash of
+   * the submitted password whether or not the token is real, so an unbounded
+   * endpoint is a free way to pin the box.
+   */
+  passwordResetConsume: { capacity: 10, windowSeconds: 15 * MINUTE },
 } as const satisfies Record<string, RateLimitPolicy>;

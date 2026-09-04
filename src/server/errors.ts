@@ -101,6 +101,21 @@ export const WishlistErrors = {
 export const invalidCredentials = () =>
   new DomainError("INVALID_CREDENTIALS", "Email or password is incorrect", 401);
 
+/**
+ * Password reset (ADR-0012). One error for every way a token can fail —
+ * unknown, expired, already used, malformed. A legitimate user's next action
+ * is the same in all four cases (ask for a new link), and distinguishing them
+ * hands a probe to everyone else.
+ */
+export const PasswordResetErrors = {
+  invalidToken: () =>
+    new DomainError(
+      "RESET_TOKEN_INVALID",
+      "That reset link is invalid or has expired",
+      400,
+    ),
+};
+
 /** Claim-specific failures. */
 export const ClaimErrors = {
   alreadyClaimed: () =>

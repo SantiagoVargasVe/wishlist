@@ -2,7 +2,7 @@
 id: T102
 title: Reset token service — mint, consume, rate-limit policies
 epic: E12-account-recovery
-status: todo
+status: done
 depends_on: [T100]
 size: M
 ---
