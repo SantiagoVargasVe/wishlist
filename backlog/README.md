@@ -244,16 +244,16 @@ tokens, and sessions that can actually be revoked), and
 [ADR-0013](../docs/adr/0013-email-verification-gates-recovery.md) (verified addresses gate
 recovery, and nothing else).
 
-- `T100` Schema: `password_reset_tokens` + `users.sessions_valid_from`
-- `T101` SMTP mail transport module, optional by config
-- `T102` Reset token service — mint, consume, rate-limit policies
-- `T103` `POST /api/auth/forgot-password` and `/api/auth/reset-password`
-- `T104` Enforce `sessions_valid_from` — make JWTs revocable
-- `T105` `/forgot-password` and `/reset-password/[token]` pages
-- `T106` `scripts/reset-link.ts` — mint a reset link without email
-- `T107` Schema: `users.email_verified_at` + token `purpose` column
-- `T108` Verification service, registration send, and verify endpoint
-- `T109` Verification UI — prompt, resend, `/verify-email/[token]`
+- `T100` Schema: `password_reset_tokens` + `users.sessions_valid_from` — **done**
+- `T101` SMTP mail transport module, optional by config — **done**
+- `T102` Reset token service — mint, consume, rate-limit policies — **done**
+- `T103` `POST /api/auth/forgot-password` and `/api/auth/reset-password` — **done**
+- `T104` Enforce `sessions_valid_from` — make JWTs revocable — **done**
+- `T105` `/forgot-password` and `/reset-password/[token]` pages — **done**
+- `T106` `scripts/reset-link.ts` — mint a reset link without email — **done**
+- `T107` Schema: `users.email_verified_at` + token `purpose` column — **done**
+- `T108` Verification service, registration send, and verify endpoint — **done**
+- `T109` Verification UI — prompt, resend, `/verify-email/[token]` — **done**
 
 **Three things to read before picking any of these up.**
 

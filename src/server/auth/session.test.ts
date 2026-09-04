@@ -11,14 +11,15 @@ vi.mock("next/headers", () => ({
   }),
 }));
 
-const getSessionsValidFromMock = vi.fn<() => Promise<Date | null>>();
+type Account = { sessionsValidFrom: Date; emailVerifiedAt: Date | null };
+const getSessionAccountMock = vi.fn<() => Promise<Account | null>>();
 vi.mock("../services/auth", () => ({
-  getSessionsValidFrom: () => getSessionsValidFromMock(),
+  getSessionAccount: () => getSessionAccountMock(),
 }));
 
 import { DomainError } from "../errors";
 import { signSessionToken } from "./jwt";
-import { currentUserId, requireUserId } from "./session";
+import { currentSession, currentUserId, requireUserId } from "./session";
 
 const SECRET = "x".repeat(48);
 const USER = "3f1c6b6a-1f0e-4c2a-9b6f-1a2b3c4d5e6f";
@@ -41,11 +42,14 @@ async function tokenIssuedAt(offsetSeconds: number): Promise<string> {
     .sign(new TextEncoder().encode(SECRET));
 }
 
-const epochAt = (offsetSeconds: number) => new Date(Date.now() + offsetSeconds * 1000);
+const epochAt = (offsetSeconds: number): Account => ({
+  sessionsValidFrom: new Date(Date.now() + offsetSeconds * 1000),
+  emailVerifiedAt: null,
+});
 
 beforeEach(() => {
   cookieValue.mockReturnValue(undefined);
-  getSessionsValidFromMock.mockResolvedValue(epochAt(-3600));
+  getSessionAccountMock.mockResolvedValue(epochAt(-3600));
 });
 
 afterEach(() => {
@@ -56,7 +60,7 @@ describe("currentUserId", () => {
   it("returns null when there is no cookie", async () => {
     expect(await currentUserId()).toBeNull();
     // Nothing to look up, so nothing is looked up.
-    expect(getSessionsValidFromMock).not.toHaveBeenCalled();
+    expect(getSessionAccountMock).not.toHaveBeenCalled();
   });
 
   it("resolves a valid session", async () => {
@@ -69,21 +73,21 @@ describe("currentUserId", () => {
     // on every authenticated request.
     cookieValue.mockReturnValue(await signSessionToken(USER));
     await currentUserId();
-    expect(getSessionsValidFromMock).toHaveBeenCalledTimes(1);
+    expect(getSessionAccountMock).toHaveBeenCalledTimes(1);
   });
 
   it("rejects a token issued before the epoch was bumped", async () => {
     // A password reset moved sessions_valid_from forward; the attacker's
     // 30-day cookie was minted before that and must stop working immediately.
     cookieValue.mockReturnValue(await tokenIssuedAt(-600));
-    getSessionsValidFromMock.mockResolvedValue(epochAt(-300));
+    getSessionAccountMock.mockResolvedValue(epochAt(-300));
 
     expect(await currentUserId()).toBeNull();
   });
 
   it("accepts a token issued after the epoch was bumped", async () => {
     cookieValue.mockReturnValue(await tokenIssuedAt(-60));
-    getSessionsValidFromMock.mockResolvedValue(epochAt(-300));
+    getSessionAccountMock.mockResolvedValue(epochAt(-300));
 
     expect(await currentUserId()).toBe(USER);
   });
@@ -104,7 +108,7 @@ describe("currentUserId", () => {
           .setExpirationTime(Math.floor(Date.now() / 1000) + 3600)
           .sign(new TextEncoder().encode(SECRET)),
       );
-      getSessionsValidFromMock.mockResolvedValue(new Date(epochMs));
+      getSessionAccountMock.mockResolvedValue({ sessionsValidFrom: new Date(epochMs), emailVerifiedAt: null });
       return currentUserId();
     }
 
@@ -123,7 +127,7 @@ describe("currentUserId", () => {
 
   it("returns null for a deleted user rather than throwing", async () => {
     cookieValue.mockReturnValue(await signSessionToken(USER));
-    getSessionsValidFromMock.mockResolvedValue(null);
+    getSessionAccountMock.mockResolvedValue(null);
 
     expect(await currentUserId()).toBeNull();
   });
@@ -134,7 +138,7 @@ describe("currentUserId", () => {
       expect(await currentUserId()).toBeNull();
     }
     // A token that never verified is never worth a database round trip.
-    expect(getSessionsValidFromMock).not.toHaveBeenCalled();
+    expect(getSessionAccountMock).not.toHaveBeenCalled();
   });
 
   it("returns null for a token signed with a different secret", async () => {
@@ -174,14 +178,44 @@ describe("requireUserId", () => {
   it("does not repeat the lookup currentUserId already did", async () => {
     cookieValue.mockReturnValue(await signSessionToken(USER));
     await requireUserId();
-    expect(getSessionsValidFromMock).toHaveBeenCalledTimes(1);
+    expect(getSessionAccountMock).toHaveBeenCalledTimes(1);
   });
 
   it("throws UNAUTHORIZED for a revoked session", async () => {
     cookieValue.mockReturnValue(await tokenIssuedAt(-600));
-    getSessionsValidFromMock.mockResolvedValue(epochAt(-300));
+    getSessionAccountMock.mockResolvedValue(epochAt(-300));
 
     await expect(requireUserId()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
     await expect(requireUserId()).rejects.toBeInstanceOf(DomainError);
+  });
+});
+
+describe("currentSession", () => {
+  it("carries verification state out of the same read", async () => {
+    // The app shell needs it on every render (T109); a second query for a
+    // column already on the row being read would be waste on the hottest path.
+    cookieValue.mockReturnValue(await signSessionToken(USER));
+    getSessionAccountMock.mockResolvedValue({
+      sessionsValidFrom: new Date(Date.now() - 3600_000),
+      emailVerifiedAt: new Date(),
+    });
+
+    expect(await currentSession()).toEqual({ userId: USER, emailVerified: true });
+    expect(getSessionAccountMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports an unverified account as a perfectly good session", async () => {
+    // Verification gates recovery and nothing else (ADR-0013) — an unverified
+    // user is logged in like anyone else.
+    cookieValue.mockReturnValue(await signSessionToken(USER));
+
+    expect(await currentSession()).toEqual({ userId: USER, emailVerified: false });
+  });
+
+  it("is null for a revoked session", async () => {
+    cookieValue.mockReturnValue(await tokenIssuedAt(-600));
+    getSessionAccountMock.mockResolvedValue(epochAt(-300));
+
+    expect(await currentSession()).toBeNull();
   });
 });

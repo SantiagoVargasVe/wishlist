@@ -2,7 +2,7 @@
 id: T109
 title: Verification UI — prompt, resend, /verify-email/[token]
 epic: E12-account-recovery
-status: todo
+status: done
 depends_on: [T108]
 size: M
 ---

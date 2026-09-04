@@ -42,6 +42,38 @@ export const es = {
       sent: "Si esa dirección está registrada, te enviamos un enlace para restablecer tu contraseña.",
       sentHint: "El enlace vence en 30 minutos. Si no llega en unos minutos, revisa el correo no deseado o vuelve a intentarlo.",
       backToLogin: "Volver a iniciar sesión",
+      // This page is where an unverified user hits the wall: the endpoint
+      // answers the same 202 either way and sends them nothing (ADR-0013), so
+      // without this line the failure is completely invisible to them.
+      verifiedRequired:
+        "Para recibir el enlace, tu correo debe estar confirmado. Si aún no lo has hecho, inicia sesión y confírmalo primero.",
+    },
+    verifyEmail: {
+      prompt: {
+        // States the actual consequence rather than a generic "confirma tu
+        // correo". An unverified user keeps full use of the app (ADR-0013), so
+        // they should be able to make an informed decision to ignore this.
+        message:
+          "Confirma tu correo para poder recuperar tu contraseña si algún día la olvidas. " +
+          "Mientras tanto tu cuenta funciona con normalidad.",
+        resend: "Reenviar correo",
+        resending: "Enviando…",
+        sent: "Listo, te enviamos el correo. Revisa tu bandeja.",
+        error: "No se pudo enviar el correo. Intenta más tarde.",
+        dismiss: "Ahora no",
+      },
+      page: {
+        title: "Confirmar tu correo",
+        verifying: "Confirmando tu correo…",
+        successTitle: "Correo confirmado",
+        successBody:
+          "Ya puedes recuperar tu contraseña por correo si algún día la olvidas.",
+        successCta: "Ir a mis listas",
+        failedTitle: "No pudimos confirmar tu correo",
+        failedBody:
+          "Los enlaces de confirmación vencen a las 24 horas y solo se pueden usar una vez.",
+        loginToResend: "Inicia sesión para pedir uno nuevo",
+      },
     },
     resetPassword: {
       title: "Elige una contraseña nueva",
