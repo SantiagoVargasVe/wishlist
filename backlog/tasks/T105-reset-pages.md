@@ -2,7 +2,7 @@
 id: T105
 title: /forgot-password and /reset-password/[token] pages
 epic: E12-account-recovery
-status: todo
+status: done
 depends_on: [T103]
 size: M
 ---
