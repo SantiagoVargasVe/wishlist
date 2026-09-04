@@ -2,7 +2,7 @@
 id: T107
 title: Schema — users.email_verified_at + token purpose column
 epic: E12-account-recovery
-status: todo
+status: done
 depends_on: [T100]
 size: S
 ---
