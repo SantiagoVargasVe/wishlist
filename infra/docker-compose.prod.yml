@@ -39,6 +39,27 @@ services:
       # need these in .env at all; the app already treats them as optional.
       MELI_CLIENT_ID: ${MELI_CLIENT_ID:-}
       MELI_CLIENT_SECRET: ${MELI_CLIENT_SECRET:-}
+      # Optional (T101/ADR-0011) — outbound SMTP. The provider is these five
+      # values and nothing else; changing vendor is a .env edit.
+      #
+      # They have to be listed here or they never reach the container: this
+      # block enumerates the environment, so a key in the host's .env that
+      # isn't named is simply not passed through.
+      #
+      # `${VAR:-}` sets the variable to an EMPTY STRING, it does not omit it.
+      # `optionalEnv()` in config.schema.ts is what turns that back into
+      # "absent" — without it, an operator running no mail provider would have
+      # the app refuse to boot rather than quietly disable a feature, which is
+      # the opposite of what ADR-0011 promises. Same applies to the MELI pair
+      # above.
+      #
+      # All five or none: a partial mailer fails at boot naming what is missing,
+      # rather than at 3am on the one send that matters.
+      MAIL_SMTP_HOST: ${MAIL_SMTP_HOST:-}
+      MAIL_SMTP_PORT: ${MAIL_SMTP_PORT:-}
+      MAIL_SMTP_USER: ${MAIL_SMTP_USER:-}
+      MAIL_SMTP_PASS: ${MAIL_SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
     volumes:
       # Item images. Not backed up by choice — see ADR-0004.
       - ./data/images:/app/data/images

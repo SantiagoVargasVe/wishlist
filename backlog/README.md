@@ -69,7 +69,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 | **E9** post-mvp-ui | Card layout, image-after-add race, form UX gating, price masking, multi-select lists | T080–T084 |
 | **E10** preview-reliability | Why pasted links so often yield no image, and what to do about it | T085–T088 |
 | **E11** post-deploy-ui-polish | Second round of deployed-app UI fixes from real usage (2026-08-30) | T089–T096 |
-| **E12** account-recovery | Password reset: SMTP transport, single-use tokens, revocable sessions, email verification | T100–T109 |
+| **E12** account-recovery | Password reset: SMTP transport, single-use tokens, revocable sessions, email verification | T100–T110 |
 
 ## Task index
 
@@ -254,6 +254,7 @@ recovery, and nothing else).
 - `T107` Schema: `users.email_verified_at` + token `purpose` column — **done**
 - `T108` Verification service, registration send, and verify endpoint — **done**
 - `T109` Verification UI — prompt, resend, `/verify-email/[token]` — **done**
+- `T110` Wire `MAIL_*` into the production compose file, and treat an empty value as absent — **done**
 
 **Three things to read before picking any of these up.**
 

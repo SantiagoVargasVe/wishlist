@@ -16,6 +16,29 @@ const postgresUrl = z
     "must be a postgresql:// connection string",
   );
 
+/**
+ * An optional setting that treats a blank value as absent.
+ *
+ * Necessary because of how the environment actually arrives in production.
+ * Compose's `${VAR:-}` **sets the variable to an empty string** rather than
+ * omitting it — measured, not assumed — so an operator who leaves a key out of
+ * their `.env` gets `VAR=""` inside the container, not nothing. Every optional
+ * key here is `.min(1)`, and `""` is a string, so without this it fails
+ * validation and the whole app refuses to boot over a feature nobody asked for.
+ *
+ * Whitespace is trimmed first, so `MAIL_SMTP_PASS=" "` reads as absent too:
+ * that is a typo, never a password.
+ *
+ * Deliberately **not** applied to required keys. An empty `AUTH_SECRET` should
+ * fail as loudly as a missing one.
+ */
+function optionalEnv<T extends z.ZodType>(schema: T) {
+  return z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    schema.optional(),
+  );
+}
+
 const baseConfigSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -71,8 +94,8 @@ const baseConfigSchema = z.object({
   // hasn't registered a MercadoLibre developer app just leaves these unset,
   // and MercadoLibre links fall through to the generic scrape exactly as
   // before — this integration is additive, never a new hard dependency.
-  MELI_CLIENT_ID: z.string().min(1).optional(),
-  MELI_CLIENT_SECRET: z.string().min(1).optional(),
+  MELI_CLIENT_ID: optionalEnv(z.string().min(1)),
+  MELI_CLIENT_SECRET: optionalEnv(z.string().min(1)),
 
   // Outbound SMTP (ADR-0011). All five optional: an operator running no mail
   // vendor is a supported configuration, not a broken one, so unset means the
@@ -82,14 +105,17 @@ const baseConfigSchema = z.object({
   //
   // The provider is entirely a matter of these five values; nothing in the
   // code knows Resend exists.
-  MAIL_SMTP_HOST: z.string().min(1).optional(),
-  MAIL_SMTP_PORT: z.coerce.number().int().positive().optional(),
-  MAIL_SMTP_USER: z.string().min(1).optional(),
-  MAIL_SMTP_PASS: z.string().min(1).optional(),
+  MAIL_SMTP_HOST: optionalEnv(z.string().min(1)),
+  // The blank-to-absent step runs *before* coercion, deliberately: `Number("")`
+  // is 0, so without it an unset port would fail as "not positive" rather than
+  // reading as absent.
+  MAIL_SMTP_PORT: optionalEnv(z.coerce.number().int().positive()),
+  MAIL_SMTP_USER: optionalEnv(z.string().min(1)),
+  MAIL_SMTP_PASS: optionalEnv(z.string().min(1)),
   // A bare address, not `Name <addr@host>`. Narrower than SMTP allows, on
   // purpose: a malformed From is the kind of thing that fails at the provider
   // on the one send that matters, and this is the cheap place to catch it.
-  MAIL_FROM: z.email().optional(),
+  MAIL_FROM: optionalEnv(z.email()),
 });
 
 /** The five keys that make up the mail transport, as one all-or-nothing group. */
