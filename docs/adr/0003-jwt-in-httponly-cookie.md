@@ -1,6 +1,7 @@
 # ADR-0003 — JWT in an httpOnly cookie, not localStorage
 
-**Status:** Accepted · 2026-08-23
+**Status:** Accepted · 2026-08-23 · the last consequence below is **superseded** by
+[ADR-0012](0012-password-reset-via-single-use-token.md)
 
 ## Context
 
@@ -34,3 +35,10 @@ This still satisfies "basic JWT": same token, same signing, different transport.
   rather than loosening `SameSite`.
 - Logout clears the cookie. Tokens aren't revocable server-side before expiry — accepted; add a
   session table if that ever matters.
+
+  **Superseded (T104).** It mattered:
+  [ADR-0012](0012-password-reset-via-single-use-token.md) needed a password reset to actually end
+  the sessions of whoever prompted it. The answer was not a session table but a single column,
+  `users.sessions_valid_from`, compared against the JWT's `iat` in `currentUserId()` — the same
+  revocation with no session lifecycle to maintain. The cost, stated plainly there, is that
+  session resolution is now a database read rather than pure crypto.

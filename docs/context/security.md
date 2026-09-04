@@ -63,6 +63,30 @@ guard should survive the app being moved.
 - Login failures are generic: "email or password is incorrect", never "no such user".
 - Registration is **invite-gated**. Single-use codes.
 
+### Sessions are revocable
+
+`currentUserId()` verifies the JWT **and then** compares its `iat` against
+`users.sessions_valid_from`. A token issued at or before that instant is not a session, however
+valid its signature. Bumping the column — which password reset does — logs every existing session
+out immediately, everywhere.
+
+This reverses the consequence [ADR-0003](../adr/0003-jwt-in-httponly-cookie.md) accepted ("tokens
+aren't revocable server-side before expiry"), for the reason
+[ADR-0012](../adr/0012-password-reset-via-single-use-token.md) gives: a meaningful share of
+password resets are someone reacting to a suspicion that another person has their password, and a
+reset that leaves that person's 30-day cookie working has done nothing about the actual problem
+while strongly implying it has.
+
+Two properties are load-bearing and easy to break:
+
+- **Session resolution is a database read, once per authenticated request.** Accepted
+  deliberately — a session table would be the same read plus a lifecycle to maintain. **Do not
+  cache it.** A cache reintroduces exactly the staleness the column removes.
+- **Same-second is revoked.** `iat` has second resolution, `sessions_valid_from` does not, so the
+  column is floored to seconds and the token must have been issued in a strictly *later* one.
+  Getting the comparison backwards leaves a one-second window in which an attacker's freshly
+  refreshed session survives the reset meant to kill it.
+
 ## Anonymous claims
 
 Anyone with the link can write to the claim endpoint. That's the product working as intended,

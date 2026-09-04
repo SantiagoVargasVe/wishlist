@@ -20,6 +20,12 @@ function secretKey(): Uint8Array {
 
 export type SessionClaims = {
   userId: string;
+  /**
+   * Seconds since the epoch, as `iat` is defined. Session resolution compares
+   * it against `users.sessions_valid_from` so a reset can revoke tokens minted
+   * before it (ADR-0012) — which is the only reason it is surfaced at all.
+   */
+  issuedAt: number;
 };
 
 export async function signSessionToken(userId: string): Promise<string> {
@@ -37,7 +43,8 @@ export async function signSessionToken(userId: string): Promise<string> {
  * Verify and decode a session token.
  *
  * Returns null rather than throwing for *any* invalid token — expired,
- * tampered, malformed, wrong algorithm. Callers treat null as "not logged in".
+ * tampered, malformed, wrong algorithm, or missing a claim we need. Callers
+ * treat null as "not logged in".
  *
  * `jwtVerify` is given an explicit algorithm list so a token claiming
  * `alg: none` (or any other algorithm) can't be accepted.
@@ -50,8 +57,11 @@ export async function verifySessionToken(
       algorithms: [ALGORITHM],
     });
 
-    if (!payload.sub) return null;
-    return { userId: payload.sub };
+    // No `iat` means no way to tell whether the token predates a revocation,
+    // and "can't tell" has to read as "not a session". Every token this app
+    // mints has one — `setIssuedAt()` in `signSessionToken`.
+    if (!payload.sub || typeof payload.iat !== "number") return null;
+    return { userId: payload.sub, issuedAt: payload.iat };
   } catch {
     return null;
   }

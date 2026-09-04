@@ -182,6 +182,29 @@ export async function createInvite(userId: string, db: Db = getDb()): Promise<In
   return { code, expiresAt };
 }
 
+/**
+ * The account's session epoch, or null when there is no such user.
+ *
+ * One narrow read on the hottest path in the app — `currentUserId()` calls it
+ * on every authenticated request (T104) — so it selects one column and
+ * deliberately does not reuse `getUserById`.
+ *
+ * Null covers a deleted user. The row is gone, so there is nothing to compare
+ * against, and the caller reads that as "not logged in" rather than throwing.
+ */
+export async function getSessionsValidFrom(
+  userId: string,
+  db: Db = getDb(),
+): Promise<Date | null> {
+  const [row] = await db
+    .select({ sessionsValidFrom: users.sessionsValidFrom })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  return row?.sessionsValidFrom ?? null;
+}
+
 /** Look up a user by id. Returns null rather than throwing — callers decide. */
 export async function getUserById(
   id: string,
