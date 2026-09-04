@@ -95,4 +95,9 @@ and sharing one couples two unrelated services in ways that complicate both.
 Adding a runtime dependency needs a line in the ADR or task explaining why. Current intended set:
 
 `next` · `react` · `drizzle-orm` · `postgres` · `zod` · `jose` (JWT) · `@node-rs/argon2` ·
-`sharp` · `nanoid` · `cheerio` (OG parsing) · `tailwindcss`
+`sharp` · `nanoid` · `cheerio` (OG parsing) · `nodemailer` (SMTP) · `tailwindcss`
+
+`nodemailer` is justified by [ADR-0011](../adr/0011-outbound-email-via-smtp.md): every candidate
+mail provider speaks SMTP, so one SMTP client makes the provider a `.env` edit instead of a code
+change and a new dependency per vendor. It is the de-facto standard for Node, has no native build
+step, and is imported only from `src/server/mail/`.
