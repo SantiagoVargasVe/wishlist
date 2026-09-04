@@ -8,31 +8,38 @@ package is public.
 ## Host layout
 
 ```
-~/nas/wishlist/
-  docker-compose.yml     # copy of infra/docker-compose.prod.yml
+<deploy-dir>/
+  docker-compose.yml     # fetched from this repo by the timer
   .env                   # chmod 600, never in git
   data/
     images/
     postgres/
 ```
 
+`<deploy-dir>` is wherever you put it — the unit points at it and nothing else cares.
+
 ## First-time setup
 
 ```bash
-mkdir -p ~/nas/wishlist/data/{images,postgres}
-cd ~/nas/wishlist
+mkdir -p <deploy-dir>/data/{images,postgres}
+cd <deploy-dir>
 # copy docker-compose.prod.yml here as docker-compose.yml, then write .env
 chmod 600 .env
 docker compose up -d
 ```
 
-Then install the timer:
+Then install the timer. **Edit `WorkingDirectory`, `User` and `Group` in the unit first** — they
+ship as placeholders, because a real path and account name would describe somebody's machine
+rather than the software:
 
 ```bash
 sudo cp wishlist-deploy.{service,timer} /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now wishlist-deploy.timer
 ```
+
+After the first install the compose file keeps itself current, so this is a one-time step —
+see "Updating the unit" below for the exception.
 
 ## Updating the unit
 

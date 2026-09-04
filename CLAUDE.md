@@ -60,7 +60,10 @@ These come from decisions already made. Changing one means writing an ADR first.
    works locally. See [testing.md](docs/context/testing.md).
 8. **This repo is public.** No host-specific details — no private IPs, service inventories,
    domains, or server paths. It's generic self-hosted software; deployment specifics live in the
-   operator's own notes.
+   operator's own notes. Concretely, and because each of these got past the rule once (T112):
+   systemd units use placeholder paths and account names; docs use `<deploy-dir>`, not one
+   machine's layout; and an incident is written up by its **mechanism**, never by naming which
+   other services shared the host or which hostname went down.
 
 ## Commands
 

@@ -5,16 +5,17 @@
 ```mermaid
 flowchart LR
   V["Visitor / Owner<br/>browser"] -->|HTTPS| CF["Cloudflare<br/>WAF + rate limits"]
-  CF -->|existing tunnel| CD["cloudflared<br/>(shared container)"]
+  CF -->|existing tunnel| CD["cloudflared"]
   CD --> APP["wishlist-app<br/>Next.js :3000"]
   APP --> DB[("wishlist-db<br/>Postgres 17")]
   APP --> IMG[/"data/images<br/>bind mount"/]
   APP -.->|"SSRF-guarded<br/>outbound"| WEB(["Retailer<br/>product pages"])
 ```
 
-No inbound ports are opened on the router. The app's hostname is added as a public hostname on an
-existing Cloudflare Tunnel — `cloudflared` gets bridged onto the `wishlist_default` network and
-routes to `http://wishlist-app:3000`. The public origin comes from `APP_URL`; nothing in the repo
+No inbound ports are opened on the router. The app's hostname is added as a public hostname on a
+Cloudflare Tunnel — `cloudflared` gets bridged onto the `wishlist_default` network and routes to
+`http://wishlist-app:3000`. If that container also serves other stacks, mind the service-key rule
+in [`infra/docker-compose.prod.yml`](../../infra/docker-compose.prod.yml). The public origin comes from `APP_URL`; nothing in the repo
 hardcodes a domain.
 
 ## Internal boundary
