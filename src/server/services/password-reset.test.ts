@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq } from "drizzle-orm";
 import postgres from "postgres";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { verifyPassword } from "../auth/password";
 import * as schema from "../db/schema";
@@ -17,7 +17,17 @@ import {
   RESET_TOKEN_TTL_MS,
   consumeResetToken,
   mintResetToken,
+  requestPasswordReset,
+  resetRequestEmailKey,
 } from "./password-reset";
+
+const sendMailMock = vi.fn();
+const isMailConfiguredMock = vi.fn(() => true);
+vi.mock("../mail", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../mail")>()),
+  isMailConfigured: () => isMailConfiguredMock(),
+  sendMail: (...args: unknown[]) => sendMailMock(...args),
+}));
 
 async function errorCode(promise: Promise<unknown>): Promise<string | undefined> {
   try {
@@ -36,6 +46,13 @@ describe.skipIf(!hasTestDatabase)("password reset", () => {
 
   beforeAll(async () => {
     ctx = await createTestDb();
+    // Every key the config schema requires, not just the ones this file reads —
+    // `getConfig()` validates the whole environment on first access. CI has no
+    // .env; locally dotenv fills the gap, which is how a missing key passes on
+    // a laptop and fails on a runner.
+    process.env.DATABASE_URL = "postgresql://u:p@localhost:5432/db";
+    process.env.AUTH_SECRET = "x".repeat(48);
+    process.env.APP_URL = "http://localhost:3000";
   });
 
   afterAll(async () => {
@@ -53,6 +70,9 @@ describe.skipIf(!hasTestDatabase)("password reset", () => {
       .returning();
     userId = created[0].id;
     otherId = created[1].id;
+
+    sendMailMock.mockReset().mockResolvedValue(undefined);
+    isMailConfiguredMock.mockReturnValue(true);
   });
 
   const readUser = async (id: string) => {
@@ -211,6 +231,168 @@ describe.skipIf(!hasTestDatabase)("password reset", () => {
       } finally {
         await second.end();
       }
+    });
+  });
+
+  describe("requestPasswordReset", () => {
+    const verify = (id: string) =>
+      ctx.db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.id, id));
+
+    const tokenCount = async () =>
+      (await ctx.db.select().from(passwordResetTokens)).length;
+
+    it("mints a token and mails a link for a verified address", async () => {
+      await verify(userId);
+
+      await requestPasswordReset("ana@example.com", ctx.db);
+
+      expect(await tokenCount()).toBe(1);
+      const message = sendMailMock.mock.calls[0][0];
+      expect(message.to).toBe("ana@example.com");
+      expect(message.text).toContain("http://localhost:3000/reset-password/");
+      expect(message.subject).toBe("Restablece tu contraseña");
+      // States the expiry and that the link is single-use.
+      expect(message.text).toContain("30 minutos");
+      expect(message.text).toContain("una vez");
+    });
+
+    it("links nowhere but this deployment", async () => {
+      await verify(userId);
+      await requestPasswordReset("ana@example.com", ctx.db);
+
+      const { html } = sendMailMock.mock.calls[0][0];
+      const urls = (html.match(/https?:\/\/[^"'\s<]+/g) ?? []) as string[];
+      expect(urls.length).toBeGreaterThan(0);
+      expect(urls.every((u) => u.startsWith("http://localhost:3000"))).toBe(true);
+    });
+
+    it("carries no account detail beyond the link", async () => {
+      // Mail is unencrypted at several hops and sits in a mailbox
+      // indefinitely, so it should be worth as little as possible to whoever
+      // ends up reading it.
+      await verify(userId);
+      await requestPasswordReset("ana@example.com", ctx.db);
+
+      const { text, html } = sendMailMock.mock.calls[0][0];
+      for (const part of [text, html]) {
+        expect(part).not.toContain("Ana");
+        expect(part).not.toContain("ana@example.com");
+        expect(part).not.toContain("old-hash");
+      }
+    });
+
+    it("matches the address case-insensitively", async () => {
+      await verify(userId);
+      await requestPasswordReset("ANA@EXAMPLE.COM", ctx.db);
+      expect(sendMailMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("mints nothing and sends nothing for an unknown address", async () => {
+      const logged = vi.spyOn(console, "info").mockImplementation(() => {});
+
+      await expect(
+        requestPasswordReset("nobody@example.com", ctx.db),
+      ).resolves.toBeUndefined();
+
+      expect(await tokenCount()).toBe(0);
+      expect(sendMailMock).not.toHaveBeenCalled();
+      expect(logged).toHaveBeenCalledTimes(1);
+      logged.mockRestore();
+    });
+
+    it("mints nothing and sends nothing for an unverified address", async () => {
+      // The gate ADR-0013 exists for. A mistyped address at registration means
+      // the link goes to whoever owns the typo, and this endpoint is public, so
+      // they can ask for one whenever they like.
+      const logged = vi.spyOn(console, "info").mockImplementation(() => {});
+
+      await expect(
+        requestPasswordReset("ana@example.com", ctx.db),
+      ).resolves.toBeUndefined();
+
+      expect(await tokenCount()).toBe(0);
+      expect(sendMailMock).not.toHaveBeenCalled();
+      logged.mockRestore();
+    });
+
+    it("logs the three silent cases distinctly", async () => {
+      // Per ADR-0013 the server log is the *only* way to tell them apart, so a
+      // shared generic line would defeat the whole diagnostic story.
+      const info = vi.spyOn(console, "info").mockImplementation(() => {});
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await requestPasswordReset("nobody@example.com", ctx.db);
+      const unknown = info.mock.calls.at(-1)!.join(" ");
+
+      await requestPasswordReset("ana@example.com", ctx.db);
+      const unverified = info.mock.calls.at(-1)!.join(" ");
+
+      await verify(userId);
+      sendMailMock.mockRejectedValue(new Error("535 auth failed"));
+      await requestPasswordReset("ana@example.com", ctx.db);
+      const failed = error.mock.calls.at(-1)!.join(" ");
+
+      expect(new Set([unknown, unverified, failed]).size).toBe(3);
+      expect(unverified).toMatch(/unverified/i);
+      expect(failed).toMatch(/failed/i);
+
+      info.mockRestore();
+      error.mockRestore();
+    });
+
+    it("still resolves when the send fails, and keeps the token", async () => {
+      // Swallowing is correct here: surfacing it would make the response differ
+      // between "registered, provider broken" and "unknown", handing out an
+      // enumeration oracle during an outage.
+      await verify(userId);
+      sendMailMock.mockRejectedValue(new Error("535 auth failed"));
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await expect(
+        requestPasswordReset("ana@example.com", ctx.db),
+      ).resolves.toBeUndefined();
+
+      expect(await tokenCount()).toBe(1);
+      const line = logged.mock.calls.at(-1)!.join(" ");
+      expect(line).toContain("example.com");
+      expect(line).not.toContain("ana@example.com");
+      logged.mockRestore();
+    });
+
+    it("mints a token but sends nothing when mail is unconfigured", async () => {
+      await verify(userId);
+      isMailConfiguredMock.mockReturnValue(false);
+      const logged = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      await requestPasswordReset("ana@example.com", ctx.db);
+
+      expect(await tokenCount()).toBe(1);
+      expect(sendMailMock).not.toHaveBeenCalled();
+      // The log names the supported path in that configuration.
+      expect(logged.mock.calls.at(-1)!.join(" ")).toContain("reset-link");
+      logged.mockRestore();
+    });
+  });
+
+  describe("resetRequestEmailKey", () => {
+    it("is case-insensitive, matching citext", () => {
+      // Otherwise the per-address rate limit is bypassed by changing the
+      // capitalisation, while still hitting the same account.
+      expect(resetRequestEmailKey("Ana@Example.com")).toBe(
+        resetRequestEmailKey("ana@example.com  "),
+      );
+    });
+
+    it("does not store the address in plain text", () => {
+      const key = resetRequestEmailKey("ana@example.com");
+      expect(key).not.toContain("ana");
+      expect(key).toMatch(/^[0-9a-f]{64}$/);
+    });
+
+    it("separates different addresses", () => {
+      expect(resetRequestEmailKey("ana@example.com")).not.toBe(
+        resetRequestEmailKey("beto@example.com"),
+      );
     });
   });
 });

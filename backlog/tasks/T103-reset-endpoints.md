@@ -2,7 +2,7 @@
 id: T103
 title: POST /api/auth/forgot-password and /api/auth/reset-password
 epic: E12-account-recovery
-status: todo
+status: done
 depends_on: [T101, T102, T108]
 size: M
 ---
