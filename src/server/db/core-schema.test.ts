@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { generateSlug } from "@/lib/slug";
 import { liveItem } from "./helpers";
-import { items, users, wishlistItems, wishlists } from "./schema";
+import { items, passwordResetTokens, users, wishlistItems, wishlists } from "./schema";
 import {
   createTestDb,
   hasTestDatabase,
@@ -40,7 +40,7 @@ describe.skipIf(!hasTestDatabase)("core schema", () => {
   });
 
   beforeEach(async () => {
-    await ctx.sql`TRUNCATE wishlist_items, items, wishlists, invite_codes, users RESTART IDENTITY CASCADE`;
+    await ctx.sql`TRUNCATE password_reset_tokens, wishlist_items, items, wishlists, invite_codes, users RESTART IDENTITY CASCADE`;
     const created = await ctx.db
       .insert(users)
       .values([newUser("owner@example.com"), newUser("other@example.com")])
@@ -269,6 +269,59 @@ describe.skipIf(!hasTestDatabase)("core schema", () => {
       // The item itself survives — deleting a list is not deleting its contents.
       const remaining = await ctx.db.select().from(items);
       expect(remaining).toHaveLength(1);
+    });
+  });
+
+  describe("password_reset_tokens", () => {
+    const hourFromNow = () => new Date(Date.now() + 60 * 60 * 1000);
+
+    it("rejects a duplicate token hash", async () => {
+      // The hash is the primary key, so a collision — or a replayed insert of
+      // the same token — cannot produce two rows to consume independently.
+      await ctx.db
+        .insert(passwordResetTokens)
+        .values({ tokenHash: "abc", userId: ownerId, expiresAt: hourFromNow() });
+
+      const code = await pgErrorCode(
+        ctx.db
+          .insert(passwordResetTokens)
+          .values({ tokenHash: "abc", userId: otherId, expiresAt: hourFromNow() }),
+      );
+      expect(code).toBe(PG_UNIQUE_VIOLATION);
+    });
+
+    it("removes a deleted user's tokens", async () => {
+      await ctx.db.insert(passwordResetTokens).values([
+        { tokenHash: "one", userId: ownerId, expiresAt: hourFromNow() },
+        { tokenHash: "two", userId: otherId, expiresAt: hourFromNow() },
+      ]);
+
+      await ctx.db.delete(users).where(eq(users.id, ownerId));
+
+      const rows = await ctx.db.select().from(passwordResetTokens);
+      expect(rows.map((r) => r.tokenHash)).toEqual(["two"]);
+    });
+
+    it("starts unused", async () => {
+      const [row] = await ctx.db
+        .insert(passwordResetTokens)
+        .values({ tokenHash: "fresh", userId: ownerId, expiresAt: hourFromNow() })
+        .returning();
+      expect(row.usedAt).toBeNull();
+    });
+  });
+
+  describe("users.sessions_valid_from", () => {
+    it("defaults to now rather than null", async () => {
+      // Not nullable on purpose: a null would make every read site decide what
+      // null means, and the answer is always "the account's epoch" (ADR-0012).
+      const [row] = await ctx.db
+        .insert(users)
+        .values(newUser("fresh@example.com"))
+        .returning();
+
+      expect(row.sessionsValidFrom).toBeInstanceOf(Date);
+      expect(row.sessionsValidFrom.getTime()).toBeLessThanOrEqual(Date.now() + 1000);
     });
   });
 
