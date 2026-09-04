@@ -116,6 +116,21 @@ export const PasswordResetErrors = {
     ),
 };
 
+/**
+ * Email verification (ADR-0013). Same one-error-for-everything shape as reset,
+ * and for the same reason — plus one more: a *password reset* token presented
+ * here must be as indistinguishable as an expired one, or the shared token
+ * table becomes a way to learn which kind of link someone is holding.
+ */
+export const EmailVerificationErrors = {
+  invalidToken: () =>
+    new DomainError(
+      "VERIFICATION_TOKEN_INVALID",
+      "That verification link is invalid or has expired",
+      400,
+    ),
+};
+
 /** Claim-specific failures. */
 export const ClaimErrors = {
   alreadyClaimed: () =>

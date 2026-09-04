@@ -44,3 +44,19 @@ export const loginSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+
+/**
+ * The token from a `/verify-email/[token]` or `/reset-password/[token]` link.
+ *
+ * 32 random bytes, base64url — 43 characters, no padding. Bounded rather than
+ * merely non-empty so a megabyte of garbage is rejected at the boundary instead
+ * of reaching a SHA-256 and a database round trip.
+ */
+export const tokenInput = z
+  .string()
+  .min(1, "Falta el enlace")
+  .max(200, "Ese enlace no es válido");
+
+export const verifyEmailSchema = z.object({ token: tokenInput });
+
+export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;

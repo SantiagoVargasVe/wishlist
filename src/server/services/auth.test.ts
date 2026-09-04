@@ -1,10 +1,21 @@
 import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { inviteCodes, users, wishlists } from "../db/schema";
+import { inviteCodes, passwordResetTokens, users, wishlists } from "../db/schema";
 import { createTestDb, hasTestDatabase, type TestDb } from "../db/test-support";
 import { DomainError } from "../errors";
 import { createInvite, getUserById, loginUser, registerUser } from "./auth";
+
+// Registration mails a verification link (T108). Mocked at the transport, so
+// nothing here opens a socket; unconfigured is the default, which is what the
+// rest of this file's tests see.
+const sendMailMock = vi.fn();
+const isMailConfiguredMock = vi.fn(() => false);
+vi.mock("../mail", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../mail")>()),
+  isMailConfigured: () => isMailConfiguredMock(),
+  sendMail: (...args: unknown[]) => sendMailMock(...args),
+}));
 
 const input = {
   email: "alice@example.com",
@@ -29,6 +40,15 @@ describe.skipIf(!hasTestDatabase)("registerUser", () => {
 
   beforeAll(async () => {
     ctx = await createTestDb();
+    // Every key the config schema requires, not just the ones this file reads.
+    // `getConfig()` validates the whole environment on first access, so a
+    // missing DATABASE_URL throws inside `sendVerificationEmail` — which
+    // swallows it, sends nothing, and fails these assertions with no clue why.
+    // CI has no .env; locally dotenv fills the gap, which is exactly how this
+    // passes on a laptop and fails on a runner.
+    process.env.DATABASE_URL = "postgresql://u:p@localhost:5432/db";
+    process.env.AUTH_SECRET = "x".repeat(48);
+    process.env.APP_URL = "http://localhost:3000";
   });
 
   afterAll(async () => {
@@ -36,8 +56,10 @@ describe.skipIf(!hasTestDatabase)("registerUser", () => {
   });
 
   beforeEach(async () => {
-    await ctx.sql`TRUNCATE wishlists, invite_codes, users RESTART IDENTITY CASCADE`;
+    await ctx.sql`TRUNCATE password_reset_tokens, wishlists, invite_codes, users RESTART IDENTITY CASCADE`;
     await ctx.db.insert(inviteCodes).values({ code: input.inviteCode });
+    sendMailMock.mockReset().mockResolvedValue(undefined);
+    isMailConfiguredMock.mockReturnValue(false);
   });
 
   it("creates the user and consumes the code", async () => {
@@ -194,6 +216,58 @@ describe.skipIf(!hasTestDatabase)("registerUser", () => {
     const allWishlists = await ctx.db.select().from(wishlists);
     expect(allWishlists).toHaveLength(1);
     expect(allWishlists[0].ownerId).toBe(allUsers[0].id);
+  });
+
+  describe("verification email (T108)", () => {
+    it("mails a verification link after the account is created", async () => {
+      isMailConfiguredMock.mockReturnValue(true);
+
+      const { user } = await registerUser(input, ctx.db);
+
+      expect(sendMailMock).toHaveBeenCalledTimes(1);
+      expect(sendMailMock.mock.calls[0][0].to).toBe(input.email);
+      expect(sendMailMock.mock.calls[0][0].text).toContain("/verify-email/");
+
+      const [token] = await ctx.db.select().from(passwordResetTokens);
+      expect(token.purpose).toBe("email_verify");
+      expect(token.userId).toBe(user.id);
+    });
+
+    it("registers the account anyway when the send fails", async () => {
+      // The send happens after the transaction commits, so a mail problem must
+      // never roll back an account that already exists — nor surface as a
+      // registration error to someone who did nothing wrong.
+      isMailConfiguredMock.mockReturnValue(true);
+      sendMailMock.mockRejectedValue(new Error("535 auth failed"));
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const { user, wishlist } = await registerUser(input, ctx.db);
+
+      expect(user.email).toBe(input.email);
+      expect(wishlist.slug).toBeTruthy();
+      expect(logged).toHaveBeenCalled();
+      logged.mockRestore();
+
+      // Registered, logged in, and unverified — the only thing they lose is
+      // self-service reset (ADR-0013).
+      const [row] = await ctx.db.select().from(users).where(eq(users.id, user.id));
+      expect(row.emailVerifiedAt).toBeNull();
+
+      // And the invite is still spent: the account is real.
+      const [invite] = await ctx.db.select().from(inviteCodes);
+      expect(invite.usedBy).toBe(user.id);
+    });
+
+    it("registers the account anyway when mail is unconfigured", async () => {
+      isMailConfiguredMock.mockReturnValue(false);
+
+      const { user } = await registerUser(input, ctx.db);
+
+      expect(user.email).toBe(input.email);
+      expect(sendMailMock).not.toHaveBeenCalled();
+      // Nothing minted either — a token nobody can receive is just a row.
+      expect(await ctx.db.select().from(passwordResetTokens)).toHaveLength(0);
+    });
   });
 });
 
