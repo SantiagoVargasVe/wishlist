@@ -72,6 +72,50 @@ describe("config validation", () => {
     ).toThrow(/MAIL_FROM/);
   });
 
+  it("reads five empty strings as no mail at all", () => {
+    // What docker compose actually sends for an operator who configured no
+    // provider: `${VAR:-}` sets the variable to "", it does not omit it. Before
+    // `optionalEnv`, this refused to boot — taking the whole app down over a
+    // feature nobody asked for (T110).
+    const blank = Object.fromEntries(Object.keys(mailEnv).map((k) => [k, ""]));
+    const config = parseConfig({ ...baseEnv, ...blank });
+
+    expect(config.MAIL_SMTP_HOST).toBeUndefined();
+    expect(config.MAIL_SMTP_PORT).toBeUndefined();
+    expect(config.MAIL_FROM).toBeUndefined();
+  });
+
+  it("reads a whitespace-only value as absent too", () => {
+    // `MAIL_SMTP_PASS=" "` is a typo, never a password.
+    const blank = Object.fromEntries(Object.keys(mailEnv).map((k) => [k, "   "]));
+    expect(() => parseConfig({ ...baseEnv, ...blank })).not.toThrow();
+  });
+
+  it("still catches a partial mailer once blanks are normalised", () => {
+    // The all-or-nothing rule has to survive the empty-string handling: four
+    // real values and one blank is a misconfiguration, not "no mail".
+    expect(() =>
+      parseConfig({ ...baseEnv, ...mailEnv, MAIL_SMTP_PASS: "" }),
+    ).toThrow(/MAIL_SMTP_PASS/);
+  });
+
+  it("reads an empty optional MercadoLibre key as absent", () => {
+    // Same defect, same fix — and this one was already live in production
+    // compose before T110.
+    const config = parseConfig({
+      ...baseEnv,
+      MELI_CLIENT_ID: "",
+      MELI_CLIENT_SECRET: "",
+    });
+    expect(config.MELI_CLIENT_ID).toBeUndefined();
+  });
+
+  it("still rejects an empty required key", () => {
+    // optionalEnv is deliberately not applied to these: a blank AUTH_SECRET
+    // should fail as loudly as a missing one.
+    expect(() => parseConfig({ ...baseEnv, AUTH_SECRET: "" })).toThrow(/AUTH_SECRET/);
+  });
+
   it("coerces MAIL_SMTP_PORT to a number", () => {
     expect(parseConfig({ ...baseEnv, ...mailEnv }).MAIL_SMTP_PORT).toBe(587);
   });
