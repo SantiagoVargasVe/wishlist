@@ -6,9 +6,23 @@ Requires=docker.service
 [Service]
 Type=oneshot
 WorkingDirectory=/home/robin/nas/wishlist
-# `pull` is a no-op when the digest is unchanged, and `up -d` only recreates the
-# container if the image actually moved. So a tick with nothing new costs one
-# registry HEAD request.
+# The compose file is fetched from the repository on every tick, so a change to
+# infra/docker-compose.prod.yml reaches the deployment instead of sitting in a
+# template nobody remembered to copy. A fork changes this one line.
+Environment=COMPOSE_URL=https://raw.githubusercontent.com/SantiagoVargasVe/wishlist/main/infra/docker-compose.prod.yml
+# Leading `-`: the repository host being unreachable must not stop the image
+# deploy. The registry is the half that carries security fixes, and the compose
+# file already on disk is known-good.
+ExecStart=-/usr/bin/curl -fsS --max-time 20 -o docker-compose.yml.incoming ${COMPOSE_URL}
+# Swap in only a file that is non-empty AND parses. A truncated download or a
+# bad commit would otherwise replace a working deployment with one that cannot
+# start — and the next tick would have nothing good left to fall back to.
+ExecStart=/bin/sh -c 'if [ -s docker-compose.yml.incoming ] && docker compose -f docker-compose.yml.incoming config -q; then mv -f docker-compose.yml.incoming docker-compose.yml; else rm -f docker-compose.yml.incoming; fi'
+# `pull` is a no-op when the digest is unchanged. `up -d` recreates the
+# container when the image moved *or* when the resolved configuration changed —
+# the second half is what makes an edit to .env or to the compose file take
+# effect, and is the mechanism this whole unit depends on. A tick with nothing
+# new costs one file fetch and one registry HEAD request.
 ExecStart=/usr/bin/docker compose pull --quiet
 ExecStart=/usr/bin/docker compose up -d
 User=robin
