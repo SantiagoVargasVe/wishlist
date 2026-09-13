@@ -21,14 +21,19 @@ export async function register() {
   // Edge runtime has no process.env worth validating, and postgres is Node-only.
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
-  const { getConfig } = await import("./server/config");
-  const config = getConfig();
+  const { runStartup } = await import("./server/startup");
+  await runStartup(async () => {
+    const { getConfig } = await import("./server/config");
+    const config = getConfig();
 
-  if (config.NODE_ENV === "production") {
-    const { runMigrations } = await import("./server/db/migrate");
-    await runMigrations();
+    if (config.NODE_ENV === "production") {
+      const { waitForDatabase } = await import("./server/db/wait-for-database");
+      await waitForDatabase(config.DATABASE_URL);
+      const { runMigrations } = await import("./server/db/migrate");
+      await runMigrations();
 
-    const { scheduleWeeklySweep } = await import("./server/og/sweep");
-    scheduleWeeklySweep();
-  }
+      const { scheduleWeeklySweep } = await import("./server/og/sweep");
+      scheduleWeeklySweep();
+    }
+  });
 }

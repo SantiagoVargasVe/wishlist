@@ -69,6 +69,40 @@ journalctl -u wishlist-deploy.service -n 50   # what it did last
 systemctl start wishlist-deploy.service       # deploy right now
 ```
 
+## Recovery after a reboot
+
+Compose's `depends_on: condition: service_healthy` orders a Compose deployment.
+It does not order Docker's automatic restart of existing containers after the
+host boots. The app therefore performs its own authenticated `SELECT 1` probe
+before production migrations, even when Compose was not involved.
+
+Temporary connection, DNS and PostgreSQL recovery errors retry every five
+seconds, with a fresh connection and a five-second deadline per probe. Twelve
+failed probes take at most about 115 seconds, plus connection cleanup. A wrong
+password, missing database or unexpected SQL error fails immediately. Migration
+SQL itself is not retried within the process.
+
+Any failed initialization explicitly exits with status 1. Next can otherwise
+keep the HTTP process alive with a rejected instrumentation hook, returning 500
+forever; `restart: unless-stopped` only helps when the process actually exits.
+Docker then retries with a fresh process, including if PostgreSQL recovery
+outlasts the first attempt window. Logs include `[startup]` and safe diagnostic
+codes, without connection strings, SQL parameters or raw driver errors.
+
+The image's HTTP health check requests `/login` locally and requires status 200.
+It checks application startup, not just an open port. It is not a database
+integrity check or a complete authenticated user-flow test. An unhealthy result
+is visible in `docker ps`; Docker does not restart a container merely because
+that check is unhealthy. Initialization failure is what triggers an exit.
+
+For a disposable test deployment, start the app while its database is stopped,
+wait for `[startup] Database unavailable`, then start PostgreSQL. Repeat with
+PostgreSQL kept offline past the retry window and check that the app's restart
+count rises before allowing the database to start. In both cases `/login`
+must eventually return 200 without an app restart by the operator.
+Never simulate a power cut against production data.
+
+
 ## Rollback
 
 Images are tagged `latest` and `sha-<commit>`. To pin a known-good build, edit
