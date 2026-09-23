@@ -1,7 +1,7 @@
 /**
  * Next runs `register()` once when the server starts.
  *
- * Three jobs, all of which have to happen at boot rather than at build:
+ * Four jobs, all of which have to happen at boot rather than at build:
  *
  * 1. Validate the environment. Config is lazy so `next build` needs no secrets
  *    (see config.schema.ts), but a running server with a broken environment
@@ -13,8 +13,13 @@
  *    a manual migration step. In development you run `npm run db:migrate`
  *    yourself, so a boot-time migration would just be a surprise.
  *
- * 3. Schedule the weekly orphan-image sweep (T034), in production only, for
- *    the same reason: nothing else in this deploy model ever runs on a
+ * 3. Frame stored packshots on white, once (T114), in production only.
+ *    Awaited, unlike the sweep: `/media` URLs changed version in the same
+ *    release, so a request served mid-pass would cache an old image under the
+ *    new URL for a year. It never throws. See packshot-backfill.ts.
+ *
+ * 4. Schedule the weekly orphan-image sweep (T034), in production only, for
+ *    the same reason as 2: nothing else in this deploy model ever runs on a
  *    schedule inside the app itself. See sweep.ts and ADR-0004.
  */
 export async function register() {
@@ -31,6 +36,9 @@ export async function register() {
       await waitForDatabase(config.DATABASE_URL);
       const { runMigrations } = await import("./server/db/migrate");
       await runMigrations();
+
+      const { backfillPackshots } = await import("./server/og/packshot-backfill");
+      await backfillPackshots();
 
       const { scheduleWeeklySweep } = await import("./server/og/sweep");
       scheduleWeeklySweep();

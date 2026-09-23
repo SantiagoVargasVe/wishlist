@@ -56,7 +56,9 @@ One container also means one deploy on a box that already runs four stacks.
 3. Parse `<head>` → `og:*`, `twitter:*`, JSON-LD `schema.org/Product`
 4. Cache the result by URL hash (`og_cache`) so re-pastes are free
 5. Return prefill JSON to the client
-6. On save, download `og:image` through the same guard → `sharp` → 800px webp → `data/images/{item_id}.webp`
+6. On save, download `og:image` through the same guard → `sharp` → 800px webp → `data/images/{item_id}.webp`.
+   A product photographed on white is trimmed and re-framed as a square white tile on the way
+   (`og/packshot.ts`, T114); a full-bleed photo is stored as it came
 7. Row stores `image_path` *and* `source_image_url` (kept so a manual refresh stays trivial)
 
 Images are stored, not hotlinked — see [ADR-0004](../adr/0004-store-images.md) for why the

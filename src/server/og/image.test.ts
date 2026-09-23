@@ -254,6 +254,29 @@ describe.skipIf(!hasTestDatabase)("storeUploadedItemImage — guards", () => {
     expect(meta.width).toBe(800);
   });
 
+  // T114. packshot.test.ts covers the framing itself; this pins that the
+  // storage path actually runs it.
+  it("stores a product photographed on white as a square tile", async () => {
+    const itemId = await newItem();
+    const product = await sharp({
+      create: { width: 300, height: 300, channels: 3, background: { r: 200, g: 30, b: 40 } },
+    })
+      .png()
+      .toBuffer();
+    const ogCanvas = await sharp({
+      create: { width: 1200, height: 630, channels: 3, background: { r: 255, g: 255, b: 255 } },
+    })
+      .composite([{ input: product, left: 450, top: 165 }])
+      .jpeg()
+      .toBuffer();
+
+    await storeUploadedItemImage(itemId, ogCanvas, ctx.db);
+
+    const meta = await sharp(path.join(imagesDir, `${itemId}.webp`)).metadata();
+    expect(meta.format).toBe("webp");
+    expect(meta.width).toBe(meta.height);
+  });
+
   it("rejects a file that isn't an image at all", async () => {
     const itemId = await newItem();
     await expect(

@@ -77,9 +77,17 @@ before it goes anywhere near `safe-fetch`.
 
 Cache by sha256 of the normalized URL (strip `utm_*`, fragments, trailing slash).
 
-**Image pipeline:** fetch through `safe-fetch` with `image/*` and a 10MB cap → `sharp` → max
-800px wide → webp q80 (~30–60KB) → write `data/images/{item_id}.webp`. Store `image_path` *and*
-`source_image_url`. Runs async after the item row is created — the user shouldn't wait on it.
+**Image pipeline:** fetch through `safe-fetch` with `image/*` and a 10MB cap → `sharp` → flatten
+onto white → max 800px wide → **frame packshots** → webp q80 (~30–60KB) → write
+`data/images/{item_id}.webp`. Store `image_path` *and* `source_image_url`. Runs async after the
+item row is created — the user shouldn't wait on it.
+
+Framing (`og/packshot.ts`, T114): an image whose border is ≥ 90% white is trimmed and centred on
+a square white tile with an 8% margin, so the square `object-cover` frame on the cards shows it
+whole; anything else is stored as it came. It's idempotent. **Rewriting stored images in place
+needs a `MEDIA_VERSION` bump** in `src/lib/media.ts` — `/media` is served `immutable` under a
+stable filename, so clients never refetch otherwise. `og/packshot-backfill.ts` is the precedent:
+a one-time pass at boot, gated by a marker file like the sweep's.
 
 ## Money
 

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { register } from "../instrumentation";
 import { waitForDatabase } from "./db/wait-for-database";
 import { runMigrations } from "./db/migrate";
+import { backfillPackshots } from "./og/packshot-backfill";
 import { scheduleWeeklySweep } from "./og/sweep";
 
 vi.mock("./config", () => ({
@@ -10,6 +11,7 @@ vi.mock("./config", () => ({
 }));
 vi.mock("./db/wait-for-database", () => ({ waitForDatabase: vi.fn() }));
 vi.mock("./db/migrate", () => ({ runMigrations: vi.fn() }));
+vi.mock("./og/packshot-backfill", () => ({ backfillPackshots: vi.fn() }));
 vi.mock("./og/sweep", () => ({ scheduleWeeklySweep: vi.fn() }));
 
 beforeEach(() => {
@@ -36,6 +38,24 @@ describe("instrumentation boot sequence", () => {
     expect(scheduleWeeklySweep).toHaveBeenCalledOnce();
   });
 
+  // T114: `/media` URLs changed version with the backfill, so a request served
+  // before it finished would cache a pre-framing image under the new URL.
+  it("finishes the packshot backfill, after migrating, before boot completes", async () => {
+    let finish!: () => void;
+    vi.mocked(backfillPackshots).mockReturnValue(
+      new Promise((resolve) => { finish = () => resolve({ framed: [] }); }),
+    );
+    let booted = false;
+    const boot = register().then(() => { booted = true; });
+    await vi.waitFor(() => expect(backfillPackshots).toHaveBeenCalledOnce());
+    expect(vi.mocked(runMigrations).mock.invocationCallOrder[0])
+      .toBeLessThan(vi.mocked(backfillPackshots).mock.invocationCallOrder[0]);
+    expect(booted).toBe(false);
+    finish();
+    await boot;
+    expect(booted).toBe(true);
+  });
+
   it.each(["readiness", "migration"])("exits if %s fails instead of leaving a poisoned server", async (stage) => {
     const exit = vi.spyOn(process, "exit").mockImplementation(() => { throw new Error("exit"); });
     vi.spyOn(console, "error").mockImplementation(() => {});
@@ -53,5 +73,6 @@ describe("instrumentation boot sequence", () => {
     await register();
     expect(waitForDatabase).not.toHaveBeenCalled();
     expect(runMigrations).not.toHaveBeenCalled();
+    expect(backfillPackshots).not.toHaveBeenCalled();
   });
 });

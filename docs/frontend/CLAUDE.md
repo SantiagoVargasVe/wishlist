@@ -121,8 +121,11 @@ Tailwind with the tokens in [globals.css](../../src/app/globals.css) — never a
 Component files are colocated by feature under `src/app/`, not in a global `components/` dump.
 Full rules in [design-system.md](design-system.md).
 
-Images use `next/image` pointed at `/media/{filename}`. Every item needs a placeholder — some
-items will have no image, and that must look intentional rather than broken.
+Item images render through `ItemImage` (`src/app/w/[slug]/item-image.tsx`), shared by the owner
+and visitor cards — a square `object-cover` frame that its image can never resize. Build `/media`
+URLs with `mediaUrl()` (`src/lib/media.ts`), never by hand: it carries the cache-busting version.
+Every item needs a placeholder — some items will have no image, and that must look intentional
+rather than broken.
 
 ## Accessibility
 

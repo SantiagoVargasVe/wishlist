@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./item-actions", () => ({ ItemActions: () => null }));
 
+import { mediaUrl } from "@/lib/media";
+
 import { ItemCard } from "./item-card";
 
 const baseItem = {
@@ -38,12 +40,14 @@ describe("ItemCard", () => {
     expect(screen.queryByText(/\$/)).not.toBeInTheDocument();
   });
 
-  it("renders the image with object-cover, matching the visitor card (T089)", () => {
+  it("renders its image through the shared ItemImage frame (T114)", () => {
     const { container } = render(
-      <ItemCard item={{ ...baseItem, imagePath: "abc.jpg" }} {...cardProps} />,
+      <ItemCard item={{ ...baseItem, imagePath: "abc.webp" }} {...cardProps} />,
     );
     // `alt=""` means the <img> has no `img` role — select it directly.
-    expect(container.querySelector("img")).toHaveClass("object-cover");
+    expect(container.querySelector("img")?.getAttribute("src")).toContain(
+      encodeURIComponent(mediaUrl("abc.webp")),
+    );
   });
 
   it("falls back to a placeholder when there is no image", () => {
