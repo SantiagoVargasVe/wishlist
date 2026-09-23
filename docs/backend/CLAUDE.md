@@ -84,10 +84,16 @@ item row is created — the user shouldn't wait on it.
 
 Framing (`og/packshot.ts`, T114): an image whose border is ≥ 90% white is trimmed and centred on
 a square white tile with an 8% margin, so the square `object-cover` frame on the cards shows it
-whole; anything else is stored as it came. It's idempotent. **Rewriting stored images in place
-needs a `MEDIA_VERSION` bump** in `src/lib/media.ts` — `/media` is served `immutable` under a
-stable filename, so clients never refetch otherwise. `og/packshot-backfill.ts` is the precedent:
-a one-time pass at boot, gated by a marker file like the sweep's.
+whole; anything else is stored as it came. It's idempotent.
+
+**`/media` is served `immutable` under a stable filename**, so a client only refetches an image
+whose URL changed. There are two ways to change it:
+
+- One item's picture, written through `recordResult()`, moves `og_fetched_at`, which is that
+  item's version in `mediaUrl()` (T115). Never clear that column.
+- Anything that rewrites stored files **around** `recordResult()` needs a `MEDIA_VERSION` bump
+  in `src/lib/media.ts`. `og/packshot-backfill.ts` is the precedent: a one-time pass at boot,
+  gated by a marker file like the sweep's.
 
 ## Money
 

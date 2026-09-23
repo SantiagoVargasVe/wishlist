@@ -12,6 +12,7 @@ function item(overrides: Partial<PublicVisitorItem>): PublicVisitorItem {
     title: "Bicicleta",
     notes: null,
     imagePath: null,
+    ogFetchedAt: null,
     priceAmount: null,
     priceCurrency: null,
     claimed: false,
@@ -48,13 +49,15 @@ describe("ogImageUrl", () => {
   });
 
   it("returns the absolute media url of the first item with a stored image", () => {
+    const ogFetchedAt = new Date("2026-09-01T10:00:00.000Z");
     const items = [
       item({ id: "i1", imagePath: null }),
-      item({ id: "i2", imagePath: "abc.webp" }),
+      item({ id: "i2", imagePath: "abc.webp", ogFetchedAt }),
       item({ id: "i3", imagePath: "def.webp" }),
     ];
+    // Crawlers cache og:image by URL too, so it carries the item's version (T115).
     expect(ogImageUrl(items, "https://wish.example.com")).toBe(
-      `https://wish.example.com${mediaUrl("abc.webp")}`,
+      `https://wish.example.com${mediaUrl("abc.webp", ogFetchedAt)}`,
     );
   });
 });

@@ -123,7 +123,9 @@ Full rules in [design-system.md](design-system.md).
 
 Item images render through `ItemImage` (`src/app/w/[slug]/item-image.tsx`), shared by the owner
 and visitor cards — a square `object-cover` frame that its image can never resize. Build `/media`
-URLs with `mediaUrl()` (`src/lib/media.ts`), never by hand: it carries the cache-busting version.
+URLs with `mediaUrl(imagePath, item.ogFetchedAt)` (`src/lib/media.ts`), never by hand. It
+carries the cache-busting versions: a global one, plus the item's own, so a replaced picture shows
+up.
 Every item needs a placeholder — some items will have no image, and that must look intentional
 rather than broken.
 

@@ -1,6 +1,7 @@
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { users } from "../db/schema";
+import { items, users } from "../db/schema";
 import { createTestDb, hasTestDatabase, type TestDb } from "../db/test-support";
 import { DomainError } from "../errors";
 import { claimItem } from "./claims";
@@ -73,6 +74,23 @@ describe.skipIf(!hasTestDatabase)("getPublicWishlist", () => {
 
     expect(result.items).toHaveLength(1);
     expect(result.items[0].claimed).toBe(false);
+  });
+
+  // T115: the visitor card puts it in the image URL, so a replaced picture
+  // reaches visitors who already loaded the old one.
+  it("exposes when each item's image was stored — the image's cache key", async () => {
+    const list = await createDefaultWishlist(ownerId, ctx.db);
+    const item = await createItem(
+      ownerId,
+      { url: "https://example.com/p", title: "Headphones", wishlistIds: [list.id] },
+      ctx.db,
+    );
+    const fetchedAt = new Date("2026-09-01T10:00:00.000Z");
+    await ctx.db.update(items).set({ ogFetchedAt: fetchedAt }).where(eq(items.id, item.id));
+
+    const result = await getPublicWishlist(list.slug, ctx.db);
+
+    expect(result.items[0].ogFetchedAt).toEqual(fetchedAt);
   });
 
   it("reports claimed: true with no claimer identity anywhere in the result", async () => {

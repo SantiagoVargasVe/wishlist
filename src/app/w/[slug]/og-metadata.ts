@@ -20,5 +20,7 @@ export function shareDescription(itemCount: number): string {
  */
 export function ogImageUrl(items: PublicVisitorItem[], appUrl: string): string | null {
   const withImage = items.find((item) => item.imagePath !== null);
-  return withImage?.imagePath ? `${appUrl}${mediaUrl(withImage.imagePath)}` : null;
+  return withImage?.imagePath
+    ? `${appUrl}${mediaUrl(withImage.imagePath, withImage.ogFetchedAt)}`
+    : null;
 }

@@ -27,6 +27,7 @@ const item: PublicVisitorItem = {
   title: "Bicicleta",
   notes: null,
   imagePath: null,
+  ogFetchedAt: null,
   priceAmount: null,
   priceCurrency: null,
   claimed: false,

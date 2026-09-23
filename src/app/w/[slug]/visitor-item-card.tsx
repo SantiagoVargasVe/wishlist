@@ -17,7 +17,7 @@ export function VisitorItemCard({ slug, item }: { slug: string; item: PublicVisi
 
   return (
     <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-sm">
-      <ItemImage imagePath={item.imagePath}>
+      <ItemImage imagePath={item.imagePath} imageVersion={item.ogFetchedAt}>
         {item.claimed && (
           <span className="absolute top-2 right-2 rounded-full bg-accent px-2 py-1 text-xs font-medium text-accent-foreground">
             {t("wishlist.claimed")}
