@@ -1,10 +1,8 @@
-import Image from "next/image";
-
 import { formatMoney } from "@/lib/money";
-import { t } from "@/lib/i18n";
 import type { PublicItem } from "@/server/services/items";
 
 import { ItemActions } from "./item-actions";
+import { ItemImage } from "./item-image";
 
 /**
  * The title (not the whole card) is the outbound link — the same call
@@ -26,29 +24,15 @@ export function ItemCard({
       ? formatMoney(item.priceAmount, item.priceCurrency)
       : null;
 
+  // No fixed card height any more (T114 reverses T080's h-[26rem] / h-48): a
+  // fixed-height frame has a different aspect ratio at every column width, so
+  // no image shape fills it. Cards still come out even — every card in a row
+  // has the same square frame, the content below has a constant height, and
+  // the grid stretches the row.
   return (
-    <div className="flex h-[26rem] flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-sm">
-      {/* Fixed height, not aspect-square: aspect-square ties height to the
-          grid column's width, which varies across breakpoints and column
-          counts — a fixed height keeps every card the same regardless.
-          object-cover (T089) to match what a guest sees on `VisitorItemCard`
-          — the owner reviews their list next to the link they share, so
-          consistency wins over T080's original never-crop preference; the
-          bg-muted fill still backs the no-image placeholder. */}
-      <div className="flex h-48 shrink-0 items-center justify-center bg-muted">
-        {item.imagePath ? (
-          <Image
-            src={`/media/${item.imagePath}`}
-            alt=""
-            width={400}
-            height={400}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <span className="text-sm text-muted-foreground">{t("wishlist.noImage")}</span>
-        )}
-      </div>
-      <div className="flex flex-1 flex-col gap-2 overflow-hidden p-3">
+    <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-sm">
+      <ItemImage imagePath={item.imagePath} />
+      <div className="flex flex-1 flex-col gap-2 p-3">
         <a
           href={item.url}
           target="_blank"

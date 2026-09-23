@@ -1,4 +1,5 @@
 import { t } from "@/lib/i18n";
+import { mediaUrl } from "@/lib/media";
 import type { PublicVisitorItem, PublicVisitorWishlist } from "@/server/services/public-wishlist";
 
 /** `"{ownerDisplayName} — {title}"` — the format docs/frontend/CLAUDE.md specifies for the share page. */
@@ -19,5 +20,5 @@ export function shareDescription(itemCount: number): string {
  */
 export function ogImageUrl(items: PublicVisitorItem[], appUrl: string): string | null {
   const withImage = items.find((item) => item.imagePath !== null);
-  return withImage ? `${appUrl}/media/${withImage.imagePath}` : null;
+  return withImage?.imagePath ? `${appUrl}${mediaUrl(withImage.imagePath)}` : null;
 }

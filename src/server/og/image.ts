@@ -12,6 +12,7 @@ import { getDb } from "../db";
 import { items } from "../db/schema";
 import type { Db } from "../db/types";
 import { safeFetch } from "../net/safe-fetch";
+import { framePackshot, WHITE } from "./packshot";
 
 /** Exactly `{uuid}.webp` — items.id's own shape — checked before any filesystem access. */
 const FILENAME_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webp$/;
@@ -69,10 +70,29 @@ async function processImage(input: Buffer): Promise<Buffer> {
     throw new ImageRejectedError(`unsupported image format: ${format ?? "unknown"}`);
   }
 
-  // No `.withMetadata()` call — sharp strips EXIF/ICC/etc. by default, which
-  // is exactly what we want for a photo pulled from an arbitrary retailer, and
-  // doubly so for one off a phone, where EXIF carries GPS coordinates.
-  return pipeline
+  // Flattened because a transparent cut-out has no background of its own —
+  // the card behind it would show through, dark in dark mode. Resized before
+  // framing so framing works on at most IMAGE_MAX_WIDTH-wide pixels, not on
+  // whatever IMAGE_MAX_PIXELS let in. PNG in between: lossless, one encode.
+  const flat = await pipeline
+    .flatten({ background: WHITE })
+    .resize({ width: config.IMAGE_MAX_WIDTH, withoutEnlargement: true })
+    .png()
+    .toBuffer();
+
+  return encodeStoredImage((await framePackshot(flat)) ?? flat);
+}
+
+/**
+ * The last step every stored image goes through, shared with the packshot
+ * backfill so the two can't encode differently.
+ *
+ * No `.withMetadata()` call — sharp strips EXIF/ICC/etc. by default, which is
+ * exactly what we want for a photo pulled from an arbitrary retailer, and
+ * doubly so for one off a phone, where EXIF carries GPS coordinates.
+ */
+export function encodeStoredImage(image: Buffer): Promise<Buffer> {
+  return sharp(image)
     .resize({ width: config.IMAGE_MAX_WIDTH, withoutEnlargement: true })
     .webp({ quality: config.IMAGE_WEBP_QUALITY })
     .toBuffer();
@@ -90,7 +110,7 @@ async function fetchAndProcess(sourceUrl: string): Promise<Buffer> {
 }
 
 /** Temp file + rename: a concurrent `GET /media/:filename` never reads a half-written image. */
-async function writeAtomic(filename: string, data: Buffer): Promise<void> {
+export async function writeAtomic(filename: string, data: Buffer): Promise<void> {
   await mkdir(config.IMAGE_STORAGE_PATH, { recursive: true });
 
   const finalPath = path.join(config.IMAGE_STORAGE_PATH, filename);

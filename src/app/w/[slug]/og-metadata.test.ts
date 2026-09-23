@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { mediaUrl } from "@/lib/media";
 import type { PublicVisitorItem } from "@/server/services/public-wishlist";
 
 import { ogImageUrl, shareDescription, shareTitle } from "./og-metadata";
@@ -53,7 +54,7 @@ describe("ogImageUrl", () => {
       item({ id: "i3", imagePath: "def.webp" }),
     ];
     expect(ogImageUrl(items, "https://wish.example.com")).toBe(
-      "https://wish.example.com/media/abc.webp",
+      `https://wish.example.com${mediaUrl("abc.webp")}`,
     );
   });
 });

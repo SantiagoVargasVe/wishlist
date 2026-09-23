@@ -190,7 +190,7 @@ to the owner.
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/media/:filename` | — | Stored item images. `Cache-Control: public, max-age=31536000, immutable`. Filename is validated against a strict pattern — never join user input onto a filesystem path. |
+| GET | `/media/:filename` | — | Stored item images. `Cache-Control: public, max-age=31536000, immutable`. Filename is validated against a strict pattern — never join user input onto a filesystem path. The query string is ignored; clients add `?v=` via `mediaUrl()` (`src/lib/media.ts`) so images rewritten in place get a fresh cache key. |
 
 ## Rate limits
 

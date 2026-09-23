@@ -9,6 +9,7 @@ import { Field } from "@/app/_ui/field";
 import { Input } from "@/app/_ui/input";
 import { useUpdateItemMutation } from "@/lib/api/queries";
 import { t } from "@/lib/i18n";
+import { mediaUrl } from "@/lib/media";
 import { updateItemSchema, type UpdateItemInput } from "@/lib/schemas/item";
 import type { PublicItem } from "@/server/services/items";
 
@@ -76,7 +77,7 @@ export function EditItemForm({ item, onSuccess }: { item: PublicItem; onSuccess:
       </Field>
       <ItemImagePicker
         picked={image.picked}
-        scrapedUrl={item.imagePath ? `/media/${item.imagePath}` : null}
+        scrapedUrl={item.imagePath ? mediaUrl(item.imagePath) : null}
         error={image.error}
         onPickBlob={image.pickBlob}
         onPickUrl={image.pickUrl}

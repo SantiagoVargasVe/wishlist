@@ -38,8 +38,16 @@ const nextConfig: NextConfig = {
       config.resolve.alias[path.resolve(process.cwd(), "src/server/db/wait-for-database")] = false;
       config.resolve.alias[path.resolve(process.cwd(), "src/server/db/migrate")] = false;
       config.resolve.alias[path.resolve(process.cwd(), "src/server/og/sweep")] = false;
+      config.resolve.alias[path.resolve(process.cwd(), "src/server/og/packshot-backfill")] = false;
     }
     return config;
+  },
+
+  // Every stored item image is served from `/media`, with a version query
+  // string for cache-busting (`mediaUrl()`, T114). Next 15 only warns about a
+  // query string on an unlisted local image; Next 16 refuses it.
+  images: {
+    localPatterns: [{ pathname: "/media/**" }],
   },
 
   // Migrations run at boot from instrumentation.ts, so the SQL files have to be
