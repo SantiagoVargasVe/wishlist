@@ -148,10 +148,10 @@ belongs to this list *and* another is never touched — only its membership here
 and returned exactly as sent; there's no server-side conversion or derived value
 ([ADR-0009](../adr/0009-no-currency-conversion.md)).
 
-Changing `url` on `PATCH` resets `ogStatus` to `pending` and clears `ogFetchedAt` — a hook for the
-OG scraper (T030–T034), not a live trigger. **That scraper doesn't exist yet.** Until it does,
-`imagePath`, `sourceImageUrl`, `siteName`, and price are exactly what the caller sent; nothing
-auto-fills from the URL.
+Changing `url` on `PATCH` resets `ogStatus` to `pending`. That is a marker, not a trigger:
+nothing re-scrapes on a URL change, and the stored picture stays. `ogFetchedAt` is **not** cleared.
+It is the image's cache key (see § *Media*), and a key that can fall back to `null` takes the URL
+back to one a browser may still hold with older bytes (T115).
 | POST | `/api/items/:id/wishlists` | O | `{ wishlistId }` → `201`. Both the item and the target list must be the caller's — `404` if either is genuinely missing/soft-deleted, `403` if either exists but belongs to someone else. `409 ITEM_ALREADY_IN_WISHLIST` if it's already there. |
 | DELETE | `/api/items/:id/wishlists/:wishlistId` | O | → `204`. `404 ITEM_NOT_IN_WISHLIST` if that membership doesn't exist. Removing the **last** membership also soft-deletes the item — no confirmation step, unlike deleting a whole wishlist. |
 | POST | `/api/items/:id/image` | O | Raw image bytes as the body → `204`. Replaces the item's picture. `413 IMAGE_TOO_LARGE` over `IMAGE_MAX_UPLOAD_BYTES`, `400 VALIDATION_FAILED` if the bytes aren't a supported image. |
@@ -178,6 +178,10 @@ extension, and the decoded format must be in a raster allowlist — see
 | POST | `/api/w/:slug/items/:itemId/claim` | — | → `{ claimToken }`. `409` if already claimed. Rate limited by IP. |
 | DELETE | `/api/w/:slug/items/:itemId/claim` | — | Body `{ claimToken }`. Must match, or be the authenticated claimer. Rate limited. |
 
+Each item in `GET /api/w/:slug` carries `{ id, url, title, notes, imagePath, ogFetchedAt,
+priceAmount, priceCurrency, claimed }`. `ogFetchedAt` is only there to build the image URL (see
+§ *Media*). The same field is on the owner's items in `GET /api/me`.
+
 The claim routes are scoped under `:slug` deliberately — you cannot claim an item without
 knowing the unguessable link it lives behind. That alone eliminates drive-by abuse; rate
 limiting handles the rest.
@@ -190,7 +194,7 @@ to the owner.
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/media/:filename` | — | Stored item images. `Cache-Control: public, max-age=31536000, immutable`. Filename is validated against a strict pattern — never join user input onto a filesystem path. The query string is ignored; clients add `?v=` via `mediaUrl()` (`src/lib/media.ts`) so images rewritten in place get a fresh cache key. |
+| GET | `/media/:filename` | — | Stored item images. `Cache-Control: public, max-age=31536000, immutable`. Filename is validated against a strict pattern — never join user input onto a filesystem path. The query string is ignored. Clients build the URL with `mediaUrl(imagePath, ogFetchedAt)` (`src/lib/media.ts`), which adds `?v=<global>&t=<ogFetchedAt ms>`, so an image rewritten in place gets a fresh cache key, whether it was one item replaced or all of them backfilled. |
 
 ## Rate limits
 

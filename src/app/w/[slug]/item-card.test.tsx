@@ -46,7 +46,17 @@ describe("ItemCard", () => {
     );
     // `alt=""` means the <img> has no `img` role — select it directly.
     expect(container.querySelector("img")?.getAttribute("src")).toContain(
-      encodeURIComponent(mediaUrl("abc.webp")),
+      encodeURIComponent(mediaUrl("abc.webp", null)),
+    );
+  });
+
+  it("keys the image URL on when this item's image was stored (T115)", () => {
+    const ogFetchedAt = new Date("2026-09-01T10:00:00.000Z");
+    const { container } = render(
+      <ItemCard item={{ ...baseItem, imagePath: "abc.webp", ogFetchedAt }} {...cardProps} />,
+    );
+    expect(container.querySelector("img")?.getAttribute("src")).toContain(
+      encodeURIComponent(mediaUrl("abc.webp", ogFetchedAt)),
     );
   });
 

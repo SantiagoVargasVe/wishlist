@@ -21,6 +21,7 @@ const baseWishlist: PublicVisitorWishlist = {
       title: "Bici",
       notes: null,
       imagePath: null,
+      ogFetchedAt: null,
       priceAmount: null,
       priceCurrency: null,
       claimed: false,

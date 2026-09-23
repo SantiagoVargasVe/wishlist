@@ -8,13 +8,21 @@ import { itemClaims, items, users, wishlistItems, wishlists } from "../db/schema
 import type { Db } from "../db/types";
 import { WishlistErrors } from "../errors";
 
-/** What a visitor sees about one item. Claim state, never the claimer's identity (ADR-0005). */
+/**
+ * What a visitor sees about one item. Claim state, never the claimer's identity (ADR-0005).
+ *
+ * `ogFetchedAt` is here only as the image's cache key — `mediaUrl()` puts it
+ * in the `/media` URL so a replaced picture reaches visitors who already
+ * loaded the old one (T115). It says when the picture was stored, and the
+ * image URL would carry it regardless.
+ */
 export type PublicVisitorItem = {
   id: string;
   url: string;
   title: string;
   notes: string | null;
   imagePath: string | null;
+  ogFetchedAt: Date | null;
   priceAmount: string | null;
   priceCurrency: string | null;
   claimed: boolean;
@@ -58,6 +66,7 @@ export async function getPublicWishlist(
       title: items.title,
       notes: items.notes,
       imagePath: items.imagePath,
+      ogFetchedAt: items.ogFetchedAt,
       priceAmount: items.priceAmount,
       priceCurrency: items.priceCurrency,
       claimedItemId: itemClaims.itemId,

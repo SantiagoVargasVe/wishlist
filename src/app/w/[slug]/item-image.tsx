@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
-import { mediaUrl } from "@/lib/media";
+import { mediaUrl, type ImageVersion } from "@/lib/media";
 
 /**
  * The item photo's frame, shared by the owner and visitor cards so the two
@@ -19,14 +19,19 @@ import { mediaUrl } from "@/lib/media";
  * already (src/server/og/packshot.ts), so they show whole. Only full-bleed
  * photos lose an edge, and those crop well.
  *
+ * `imageVersion` is the item's `ogFetchedAt` — it moves the URL when the
+ * owner replaces the picture under the same filename (T115).
+ *
  * `children` renders over the image — the visitor card's "claimed" badge.
  */
 export function ItemImage({
   imagePath,
+  imageVersion,
   className,
   children,
 }: {
   imagePath: string | null;
+  imageVersion: ImageVersion;
   className?: string;
   children?: ReactNode;
 }) {
@@ -39,7 +44,7 @@ export function ItemImage({
     >
       {imagePath ? (
         <Image
-          src={mediaUrl(imagePath)}
+          src={mediaUrl(imagePath, imageVersion)}
           alt=""
           fill
           // One column below `sm`; from there, the grid's widest column is

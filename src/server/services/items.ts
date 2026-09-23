@@ -106,10 +106,11 @@ export async function createItem(
  * gates the lookup, so an edit can never resurrect a deleted item by writing
  * to its row.
  *
- * Changing `url` resets `og_status` to `pending` and clears `og_fetched_at`.
- * That's a hook for T031-T034, not a live trigger — nothing can fetch
- * anything yet, so this only marks the item as needing a (re)fetch once the
- * scraper exists.
+ * Changing `url` resets `og_status` to `pending` — a marker, not a trigger:
+ * nothing re-scrapes on a URL change. It deliberately does **not** clear
+ * `og_fetched_at`, which T115 made the image's cache key (`mediaUrl()`): the
+ * stored picture hasn't changed, and a key that can go back to `null` returns
+ * the URL to one a browser may still hold with older bytes.
  */
 export async function updateItem(
   id: string,
@@ -137,7 +138,7 @@ export async function updateItem(
       // download, the same split create already uses — services stay free of
       // filesystem and network work.
       ...(input.imageUrl !== undefined ? { sourceImageUrl: input.imageUrl } : {}),
-      ...(urlChanged ? { ogStatus: "pending", ogFetchedAt: null } : {}),
+      ...(urlChanged ? { ogStatus: "pending" } : {}),
       updatedAt: new Date(),
     })
     .where(eq(items.id, id))

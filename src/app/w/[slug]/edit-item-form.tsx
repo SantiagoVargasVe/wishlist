@@ -77,7 +77,7 @@ export function EditItemForm({ item, onSuccess }: { item: PublicItem; onSuccess:
       </Field>
       <ItemImagePicker
         picked={image.picked}
-        scrapedUrl={item.imagePath ? mediaUrl(item.imagePath) : null}
+        scrapedUrl={item.imagePath ? mediaUrl(item.imagePath, item.ogFetchedAt) : null}
         error={image.error}
         onPickBlob={image.pickBlob}
         onPickUrl={image.pickUrl}

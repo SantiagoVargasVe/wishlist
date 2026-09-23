@@ -68,7 +68,7 @@ current one. Scope creep inside a task is how tasks stop being self-contained.
 | **E8** invites | Self-service invite minting | T070 |
 | **E9** post-mvp-ui | Card layout, image-after-add race, form UX gating, price masking, multi-select lists | T080–T084 |
 | **E10** preview-reliability | Why pasted links so often yield no image, and what to do about it | T085–T088 |
-| **E11** post-deploy-ui-polish | Second round of deployed-app UI fixes from real usage (2026-08-30) | T089–T096, T114 |
+| **E11** post-deploy-ui-polish | Second round of deployed-app UI fixes from real usage (2026-08-30) | T089–T096, T114, T115 |
 | **E12** account-recovery | Password reset: SMTP transport, single-use tokens, revocable sessions, email verification | T100–T110 |
 
 ## Task index
@@ -238,6 +238,9 @@ E9 round. All frontend, all small.
 - `T114` Item image frame: one square frame for both views, packshots framed on white at
   storage (+ a one-time boot backfill and `/media` cache-busting). Reverses T080's fixed card
   height, deliberately. Found later (2026-09-23), filed here because it's the same kind of fix
+- `T115` Fix: a replaced item image doesn't show for anyone who already loaded the old one. A
+  per-item version (`og_fetched_at`) in `mediaUrl()`, next to T114's global one. It also stops a
+  URL edit from clearing `og_fetched_at`, which is now the image's cache key
 
 **E12 — Account recovery**
 

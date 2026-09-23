@@ -105,6 +105,10 @@ which at this scale is a rounding error.
   roughly half of retailers block server-side scraping.
 - `image_path` is a bare filename (`{item_id}.webp`) resolved against the images directory.
   `source_image_url` is kept alongside it so a manual re-fetch stays a one-liner.
+- `og_fetched_at` is set on every image write, both uploads and downloads, and it is the
+  image's cache key. The filename never changes when a picture is replaced, so `mediaUrl()`
+  puts this value in the `/media` URL (T115). It only moves forward and is never cleared,
+  including when `url` changes.
 
 ### `wishlist_items`
 pk `(wishlist_id, item_id)` · `position` int · `added_at`

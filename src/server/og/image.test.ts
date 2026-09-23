@@ -277,6 +277,21 @@ describe.skipIf(!hasTestDatabase)("storeUploadedItemImage — guards", () => {
     expect(meta.width).toBe(meta.height);
   });
 
+  // T115. The file is rewritten under the same name, so og_fetched_at is the
+  // only thing that tells a cached copy apart — mediaUrl() keys on it.
+  it("advances og_fetched_at when a replacement is stored over an existing image", async () => {
+    const itemId = await newItem();
+    await storeUploadedItemImage(itemId, await fixtureImage(400, 300), ctx.db);
+    const earlier = new Date("2026-01-01T00:00:00.000Z");
+    await ctx.db.update(items).set({ ogFetchedAt: earlier }).where(eq(items.id, itemId));
+
+    await storeUploadedItemImage(itemId, await fixtureImage(300, 400), ctx.db);
+
+    const [row] = await ctx.db.select().from(items).where(eq(items.id, itemId));
+    expect(row.imagePath).toBe(`${itemId}.webp`);
+    expect(row.ogFetchedAt!.getTime()).toBeGreaterThan(earlier.getTime());
+  });
+
   it("rejects a file that isn't an image at all", async () => {
     const itemId = await newItem();
     await expect(

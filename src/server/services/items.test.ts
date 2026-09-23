@@ -246,7 +246,27 @@ describe.skipIf(!hasTestDatabase)("item CRUD", () => {
       );
 
       expect(updated.ogStatus).toBe("pending");
-      expect(updated.ogFetchedAt).toBeNull();
+    });
+
+    // T115: og_fetched_at is the image's cache key (mediaUrl). The stored
+    // picture doesn't change with the url, and a key that falls back to null
+    // returns the image to a URL browsers may hold with older bytes.
+    it("keeps og_fetched_at when the url changes", async () => {
+      const item = await seedItem();
+      const fetchedAt = new Date("2026-09-01T10:00:00.000Z");
+      await ctx.db
+        .update(items)
+        .set({ ogStatus: "ok", ogFetchedAt: fetchedAt })
+        .where(eq(items.id, item.id));
+
+      const updated = await updateItem(
+        item.id,
+        ownerId,
+        { url: "https://example.com/different" },
+        ctx.db,
+      );
+
+      expect(updated.ogFetchedAt).toEqual(fetchedAt);
     });
 
     it("leaves og_status alone when the url is unchanged", async () => {

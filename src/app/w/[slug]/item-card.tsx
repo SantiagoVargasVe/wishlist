@@ -31,7 +31,7 @@ export function ItemCard({
   // the grid stretches the row.
   return (
     <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card text-card-foreground shadow-sm">
-      <ItemImage imagePath={item.imagePath} />
+      <ItemImage imagePath={item.imagePath} imageVersion={item.ogFetchedAt} />
       <div className="flex flex-1 flex-col gap-2 p-3">
         <a
           href={item.url}
